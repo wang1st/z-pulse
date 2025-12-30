@@ -1,0 +1,7 @@
+name,wechat_id,description,level,region,department,werss_feed_id,werss_sync_method
+中华人民共和国财政部,mofgov,财政部官方微信公众号,national,全国,财政部,mofgov_feed,rss
+浙江财政,zjcz-gov,浙江省财政厅官方微信公众号,provincial,浙江省,财政厅,zjcz_feed,rss
+杭州财政,hzcz-gov,杭州市财政局官方微信公众号,city,杭州市,财政局,hzcz_feed,rss
+宁波财政,nbcz-gov,宁波市财政局官方微信公众号,city,宁波市,财政局,nbcz_feed,rss
+温州财政,wzcz-gov,温州市财政局官方微信公众号,city,温州市,财政局,wzcz_feed,rss
+

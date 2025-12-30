@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header .subtitle {
+            margin-top: 10px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .meta {
+            padding: 20px 30px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .meta-item {
+            display: inline-block;
+            margin-right: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .content {
+            padding: 30px;
+        }
+        .content h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        .content h3 {
+            color: #764ba2;
+            margin-top: 20px;
+        }
+        .content ul, .content ol {
+            padding-left: 20px;
+        }
+        .content li {
+            margin-bottom: 8px;
+        }
+        .content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .content a:hover {
+            text-decoration: underline;
+        }
+        .footer {
+            padding: 20px 30px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        @media only screen and (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .header, .content, .meta, .footer {
+                padding: 20px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>{{ title }}</h1>
+            <div class="subtitle">Z-Pulse 财政信息智能分析系统</div>
+        </div>
+        
+        <div class="meta">
+            <span class="meta-item">📅 时间范围: {{ start_date }} 至 {{ end_date }}</span>
+            <span class="meta-item">📊 文章数量: {{ article_count }} 篇</span>
+            <span class="meta-item">📈 报告类型: {{ report_type }}</span>
+        </div>
+        
+        <div class="content">
+            {{ content|safe }}
+        </div>
+        
+        <div class="footer">
+            <p>本邮件由 Z-Pulse 财政信息AI日报系统自动发送</p>
+            <p>
+                <a href="#">取消订阅</a> | 
+                <a href="#">偏好设置</a> | 
+                <a href="#">帮助中心</a>
+            </p>
+            <p>&copy; {{ current_year }} Z-Pulse. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+

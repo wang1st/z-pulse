@@ -1,0 +1,286 @@
+services:
+  # 1. 数据中心：PostgreSQL 数据库
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: zpulse-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./shared/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal-net
+    restart: unless-stopped
+
+  # 2. 神经中枢：FastAPI 后端
+  api-backend:
+    container_name: zpulse-api
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db/${POSTGRES_DB}
+      - POSTGRES_HOST=postgres-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-brevo}
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - WEB_URL=${WEB_URL:-http://localhost:3000}
+      # weRSS 管理员账号（用于后台“查看文章”时按需回源抓取全文）
+      - WERSS_ADMIN_USERNAME=${WERSS_ADMIN_USERNAME:-admin}
+      - WERSS_ADMIN_PASSWORD=${WERSS_ADMIN_PASSWORD:-admin@123}
+      # 直接读取 weRSS sqlite（用于后台“立即采集”任务，避免 rss-bridge HTTP 卡死）
+      - USE_WERSS_DB=True
+      - WERSS_DB_PATH=/app/werss_data/werss.db
+      - WERSS_DB_LIMIT=400
+      # Ingestion cutoff policy (used by IngestionWorker when triggered from admin endpoints)
+      - MIN_ARTICLE_DATE=${MIN_ARTICLE_DATE:-2025-12-15}
+    volumes:
+      - ./backend:/app/backend
+      - ./shared:/app/shared
+      - rss_bridge_data:/app/werss_data
+    networks:
+      - internal-net
+      - proxy-net
+    restart: unless-stopped
+
+  # 3. 用户界面：Next.js 前端
+  frontend-web:
+    container_name: zpulse-web
+    image: zpulse-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api-backend:8000}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api-backend:
+        condition: service_started
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api-backend:8000}
+      - NODE_ENV=production
+    networks:
+      - proxy-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 4. 采集器：微信转RSS桥接器 (we-mp-rss)
+  rss-bridge:
+    image: rachelos/we-mp-rss:latest
+    container_name: zpulse-rss
+    working_dir: /app
+    # Playwright/Chromium 在容器内容易因为 /dev/shm 太小而崩溃（表现为 browser closed / target closed）
+    shm_size: "1gb"
+    ports:
+      - "8080:8001"
+      # we-mp-rss v1.4.8 的 Web UI 与 API 同端口（8001）。将 3001 也映射到 8001，方便从浏览器访问。
+      - "3001:8001"
+    volumes:
+      - rss_bridge_data:/app/data
+      # Hotfix we-mp-rss v1.4.8: /api/v1/wx/auth/qr/status calls WX_API.HasLogin() but HasLogin is a bool
+      - ./werss_overrides/apis/auth.py:/app/apis/auth.py:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - APP_NAME=ZPulse RSS Bridge
+      - WEB_NAME=财政公众号采集助手
+      - PORT=8001
+      - WEB_PORT=3000
+      - ENABLE_WEB=True
+      - ENABLE_JOB=True
+      # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session 导致无法更新“今天文章”）
+      - WERSS_AUTH_WEB=True
+      # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在“获取二维码”
+      # 固定到容器内的持久化目录（挂载在 /app/data），避免每次重建都重新下载
+      - PLAYWRIGHT_BROWSERS_PATH=/app/data/driver/_x86_64
+      # 实测登录链路依赖 chromium_headless_shell（playwright build v1187）
+      - BROWSER_TYPE=chromium-headless-shell
+      # we-mp-rss 默认 threads=2 会导致登录状态在多进程间不同步；强制单进程避免 /qr/status 轮询异常
+      - THREADS=1
+      # we-mp-rss 的 SPAN_INTERVAL 实际对应 config.yaml 的 interval：每篇稿件/请求间隔（秒），允许 1-60
+      - SPAN_INTERVAL=8  # 每篇稿件间隔 8 秒（更稳：降低风控与超时概率）
+      - DB=sqlite:///data/werss.db
+      - RSS_BASE_URL=${RSS_BASE_URL:-http://localhost:8080}
+      - RSS_FULL_CONTEXT=True
+      # 关键：抓取文章“原文正文”，否则 RSS 里只会有摘要/占位文本（如“欢迎关注…”）
+      - GATHER.CONTENT=True
+      - GATHER.CONTENT_MODE=web
+      - GATHER.CLEAN_HTML=True
+      # 禁用后台自动补全/自动采集（避免非 21:00 的后台任务产生采集行为）
+      - GATHER.CONTENT_AUTO_CHECK=False
+      - GATHER.CONTENT_AUTO_INTERVAL=1440
+      # 采集配置
+      - MAX_PAGE=10
+      - RSS_PAGE_SIZE=50
+      - SECRET_KEY=${WERSS_SECRET_KEY:-zpulse-rss}
+    networks:
+      - internal-net
+    restart: unless-stopped
+
+  # 5. 投喂器：RSS采集工作节点
+  ingestion-worker:
+    container_name: zpulse-ingest-worker
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: python -m app.workers.ingest
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      rss-bridge:
+        condition: service_started
+    environment:
+      - TZ=Asia/Shanghai
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db/${POSTGRES_DB}
+      - POSTGRES_HOST=postgres-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - RSS_BRIDGE_URL=http://rss-bridge:8001
+      # 改为“白天持续增量同步”，避免晚间集中抓取导致风控/超时
+      - POLL_INTERVAL=1800  # 30分钟：对齐到 :00 / :30 运行
+      # 错峰：避免与 weRSS / 其它任务在整点/半点同时争抢资源（:05 / :35）
+      - INGEST_OFFSET_MINUTES=5
+      # INGEST_RUN_AT 仅在 POLL_INTERVAL>=86400 的“每天一次模式”生效；保留无影响
+      - INGEST_RUN_AT=21:00
+      # 关键：直接读取 weRSS 的 sqlite（避免 rss-bridge HTTP 偶发卡死导致 /rss 超时）
+      - USE_WERSS_DB=True
+      - WERSS_DB_PATH=/app/werss_data/werss.db
+      - WERSS_DB_LIMIT=400
+      # 自动抓取每篇文章的微信原文全文并保存（替代“点查看再回源”）
+      - FETCH_FULL_CONTENT=True
+      - WERSS_ADMIN_USERNAME=${WERSS_ADMIN_USERNAME:-admin}
+      - WERSS_ADMIN_PASSWORD=${WERSS_ADMIN_PASSWORD:-admin@123}
+      - FULLTEXT_TIMEOUT=80
+      # Fulltext fetch hardening (retry/backoff/throttle)
+      - FULLTEXT_MAX_RETRIES=4
+      - FULLTEXT_RETRY_BASE_SLEEP=2
+      - FULLTEXT_MIN_INTERVAL=2
+      # Ingestion cutoff policy: do not store articles before this date (YYYY-MM-DD)
+      - MIN_ARTICLE_DATE=${MIN_ARTICLE_DATE:-2025-12-15}
+    volumes:
+      - ./backend:/app/backend
+      - ./shared:/app/shared
+      - rss_bridge_data:/app/werss_data
+    networks:
+      - internal-net
+    restart: unless-stopped
+
+  # 6. 分析师：AI报告生成工作节点
+  ai-worker:
+    container_name: zpulse-ai-worker
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    command: python -m app.workers.ai_generate
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      - TZ=Asia/Shanghai
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db/${POSTGRES_DB}
+      - POSTGRES_HOST=postgres-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      # Email config (needed for auto-send after daily report generation)
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-brevo}
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-这里财动}
+      - WEB_URL=${WEB_URL:-http://localhost:3000}
+      # Qwen model selection for cost optimization (configured via .env)
+      - QWEN_DAILY_MODEL=${QWEN_DAILY_MODEL:-qwen-plus}
+      - QWEN_FILTER_MODEL=${QWEN_FILTER_MODEL:-qwen-flash}
+      - QWEN_WEEKLY_MODEL=${QWEN_WEEKLY_MODEL:-qwen-max-latest}
+      # 日报生成与发送：平时增量采集，早上生成+推送
+      - DAILY_REPORT_TIME=09:45
+      - WEEKLY_REPORT_DAY=${WEEKLY_REPORT_DAY:-sunday}
+      - WEEKLY_REPORT_TIME=${WEEKLY_REPORT_TIME:-22:00}
+      # BERTopic模型缓存目录（持久化到volume，避免每次下载）
+      - SENTENCE_TRANSFORMERS_HOME=/app/models_cache
+      - HF_HOME=/app/models_cache
+    volumes:
+      - ./backend:/app/backend
+      - ./shared:/app/shared
+      - bertopic_models_cache:/app/models_cache
+    networks:
+      - internal-net
+    restart: unless-stopped
+
+  # Redis (缓存和会话)
+  redis:
+    image: redis:7-alpine
+    container_name: zpulse-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal-net
+    restart: unless-stopped
+
+  # 7. 网关：反向代理 (Nginx)
+  reverse-proxy:
+    image: nginx:latest
+    container_name: zpulse-proxy
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend-web
+      - api-backend
+    networks:
+      - proxy-net
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rss_bridge_data:
+  redis_data:
+  bertopic_models_cache:  # BERTopic模型缓存，避免每次运行时下载
+
+networks:
+  proxy-net:
+    driver: bridge
+  internal-net:
+    driver: bridge

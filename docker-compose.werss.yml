@@ -1,0 +1,107 @@
+version: '3.8'
+
+# we-mp-rss 独立部署配置
+# 此文件用于部署 we-mp-rss 采集服务
+
+services:
+  # we-mp-rss 采集服务
+  we-mp-rss:
+    image: rachelos/we-mp-rss:latest
+    container_name: zpulse-we-mp-rss
+    working_dir: /app
+    ports:
+      - "8080:8001"  # API端口
+      - "3000:3000"  # Web UI端口
+    environment:
+      # 基础配置
+      - APP_NAME=we-mp-rss
+      - WEB_NAME=财政公众号采集助手
+      - PORT=8001
+      - DEBUG=False
+      
+      # 数据库配置（使用SQLite）
+      - DB=sqlite:///data/werss.db
+      
+      # 定时任务
+      - ENABLE_JOB=True
+      # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session）
+      - WERSS_AUTH_WEB=True
+      # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在“获取二维码”
+      - PLAYWRIGHT_BROWSERS_PATH=/app/data/driver/_x86_64
+      - BROWSER_TYPE=chromium-headless-shell
+      # we-mp-rss 默认 threads=2 会导致登录状态在多进程间不同步；强制单进程避免 /qr/status 轮询异常
+      - THREADS=1
+      # we-mp-rss 的 SPAN_INTERVAL 实际对应 config.yaml 的 interval：每篇稿件/请求间隔（秒），允许 1-60
+      - SPAN_INTERVAL=3  # 每篇稿件间隔 3 秒
+      
+      # RSS配置
+      - RSS_BASE_URL=http://localhost:8080
+      - RSS_LOCAL=False
+      - RSS_FULL_CONTEXT=True
+      - RSS_ADD_COVER=True
+      - RSS_PAGE_SIZE=50
+      
+      # 采集配置
+      - MAX_PAGE=10
+      - GATHER.CONTENT=True
+      - GATHER.MODEL=app
+      - GATHER.CONTENT_MODE=web
+      - GATHER.CLEAN_HTML=True
+      - GATHER.CONTENT_AUTO_CHECK=True
+      - GATHER.CONTENT_AUTO_INTERVAL=10
+      
+      # 通知配置（可选）
+      - SEND_CODE=True
+      - DINGDING_WEBHOOK=${DINGDING_WEBHOOK:-}
+      - WECHAT_WEBHOOK=${WECHAT_WEBHOOK:-}
+      - FEISHU_WEBHOOK=${FEISHU_WEBHOOK:-}
+      
+      # 安全配置
+      - SECRET_KEY=${WERSS_SECRET_KEY:-we-mp-rss-zpulse}
+      - TOKEN_EXPIRE_MINUTES=4320
+      
+      # 日志配置
+      - LOG_LEVEL=INFO
+      
+    volumes:
+      - werss-data:/app/data
+      - werss-cache:/app/data/cache
+      # Hotfix we-mp-rss v1.4.8: /api/v1/wx/auth/qr/status calls WX_API.HasLogin() but HasLogin is a bool
+      - ./werss_overrides/apis/auth.py:/app/apis/auth.py:ro
+    restart: unless-stopped
+    networks:
+      - zpulse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # we-mp-rss 数据库备份（可选）
+  werss-backup:
+    image: alpine:latest
+    container_name: zpulse-werss-backup
+    volumes:
+      - werss-data:/data
+      - ./backups:/backups
+    command: >
+      sh -c "
+      while true; do
+        date=$(date +%Y%m%d_%H%M%S)
+        cp /data/werss.db /backups/werss_backup_$$date.db
+        find /backups -name 'werss_backup_*.db' -mtime +7 -delete
+        sleep 86400
+      done
+      "
+    restart: unless-stopped
+    networks:
+      - zpulse-network
+
+volumes:
+  werss-data:
+  werss-cache:
+
+networks:
+  zpulse-network:
+    external: true
+

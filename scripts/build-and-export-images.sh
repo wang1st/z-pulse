@@ -25,11 +25,20 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # 读取环境变量（用于构建参数）
+# 安全地加载 .env 文件，只读取 NEXT_PUBLIC_API_URL
 if [ -f ".env" ]; then
-    export $(cat .env | grep -v '^#' | xargs)
-    echo -e "${BLUE}已加载 .env 文件中的环境变量${NC}"
+    # 使用 grep 和 sed 安全地提取 NEXT_PUBLIC_API_URL 的值
+    # 只匹配以 KEY= 开头的行，忽略注释和空行
+    ENV_VALUE=$(grep -E '^NEXT_PUBLIC_API_URL=' .env 2>/dev/null | head -1 | cut -d '=' -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//' | tr -d '\r\n')
+    
+    if [ -n "$ENV_VALUE" ]; then
+        export NEXT_PUBLIC_API_URL="$ENV_VALUE"
+        echo -e "${BLUE}已从 .env 文件加载 NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}${NC}"
+    else
+        echo -e "${YELLOW}未在 .env 文件中找到 NEXT_PUBLIC_API_URL，将使用默认值${NC}"
+    fi
 else
-    echo -e "${YELLOW}警告: 未找到 .env 文件，将使用默认值${NC}"
+    echo -e "${YELLOW}提示: 未找到 .env 文件，将使用默认值${NC}"
 fi
 
 # 设置镜像标签

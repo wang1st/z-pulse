@@ -287,16 +287,37 @@ scp z-pulse-built-images.tar root@your-server-ip:/opt/z-pulse/
 echo "✅ 镜像文件已传输完成！"
 ```
 
-#### 在服务器上：
+### 4.2 在服务器上导入镜像并启动服务
+
+#### 步骤1：导入镜像
+
+在服务器上执行：
 
 ```bash
 # 1. 进入项目目录
 cd /opt/z-pulse
 
-# 2. 配置 .env 文件（重要！镜像中不包含 .env，必须在服务器上配置）
+# 2. 导入外部镜像（postgres, redis, nginx, we-mp-rss）
+echo "正在导入外部镜像..."
+docker load -i z-pulse-external-images.tar
+
+# 3. 导入应用镜像（后端和前端）
+chmod +x scripts/import-built-images.sh
+./scripts/import-built-images.sh z-pulse-built-images.tar
+
+# 4. 验证所有镜像已导入
+echo "验证镜像..."
+docker images | grep -E "postgres:15-alpine|redis:7-alpine|nginx:latest|rachelos/we-mp-rss:latest|zpulse-backend:latest|zpulse-frontend:latest"
+```
+
+#### 步骤2：配置环境变量
+
+```bash
+# 配置 .env 文件（重要！镜像中不包含 .env，必须在服务器上配置）
 if [ ! -f ".env" ]; then
     echo "⚠️  未找到 .env 文件，正在从模板创建..."
     cp env.example .env
+    echo ""
     echo "请编辑 .env 文件，至少配置必需的变量："
     echo "  - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB"
     echo "  - REDIS_PASSWORD"
@@ -311,26 +332,29 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# 3. 导入预构建的镜像
-chmod +x scripts/import-built-images.sh
-./scripts/import-built-images.sh z-pulse-built-images.tar
+# 编辑配置文件
+nano .env
+```
 
-# 4. 初始化数据库
+**必须配置的变量**（参考第三步中的说明）
+
+#### 步骤3：初始化数据库并启动服务
+
+```bash
+# 1. 启动数据库服务
 docker compose -f docker-compose.prod.yml up -d postgres-db
+
+# 2. 等待数据库启动（约10秒）
 sleep 10
+
+# 3. 初始化数据库
 docker compose -f docker-compose.prod.yml exec postgres-db psql -U zpulse -d zpulse -f /docker-entrypoint-initdb.d/init.sql
 
-# 5. 确保所有外部镜像已导入（如果之前没有导入）
-# 检查镜像是否存在
-docker images | grep -E "postgres:15-alpine|redis:7-alpine|nginx:latest|rachelos/we-mp-rss:latest"
-
-# 如果缺少外部镜像，需要先导入（参考下方"常见问题"中的 Docker Hub 连接超时解决方案）
-# 或从开发机导出外部镜像并导入：
-# 在开发机上：docker save postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest -o z-pulse-external-images.tar
-# 传输到服务器后：docker load -i z-pulse-external-images.tar
-
-# 6. 启动所有服务（使用预构建镜像，环境变量从 .env 文件读取）
+# 4. 启动所有服务（使用预构建镜像，环境变量从 .env 文件读取）
 docker compose -f docker-compose.prod.yml up -d
+
+# 5. 查看服务状态
+docker compose -f docker-compose.prod.yml ps
 ```
 
 **重要说明**：

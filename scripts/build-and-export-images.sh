@@ -78,8 +78,6 @@ else
     echo -e "${RED}✗${NC} 前端镜像构建失败"
     exit 1
 fi
-
-echo -e "${GREEN}✓${NC} 前端镜像构建完成: ${FRONTEND_IMAGE}"
 echo ""
 
 echo -e "${YELLOW}步骤 3: 导出镜像...${NC}"

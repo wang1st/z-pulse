@@ -285,18 +285,43 @@ scp z-pulse-built-images.tar root@your-server-ip:/opt/z-pulse/
 # 1. 进入项目目录
 cd /opt/z-pulse
 
-# 2. 导入预构建的镜像
+# 2. 配置 .env 文件（重要！镜像中不包含 .env，必须在服务器上配置）
+if [ ! -f ".env" ]; then
+    echo "⚠️  未找到 .env 文件，正在从模板创建..."
+    cp env.example .env
+    echo "请编辑 .env 文件，至少配置必需的变量："
+    echo "  - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB"
+    echo "  - REDIS_PASSWORD"
+    echo "  - DASHSCOPE_API_KEY"
+    echo "  - BREVO_API_KEY 或 SENDGRID_API_KEY"
+    echo "  - EMAIL_FROM"
+    echo "  - WEB_URL, NEXT_PUBLIC_API_URL"
+    echo ""
+    echo "编辑命令: nano .env"
+    echo ""
+    echo "注意：.env 文件不需要打包到镜像中，环境变量在运行时从服务器的 .env 文件读取。"
+    exit 1
+fi
+
+# 3. 导入预构建的镜像
 chmod +x scripts/import-built-images.sh
 ./scripts/import-built-images.sh z-pulse-built-images.tar
 
-# 3. 初始化数据库
+# 4. 初始化数据库
 docker compose -f docker-compose.prod.yml up -d postgres-db
 sleep 10
 docker compose -f docker-compose.prod.yml exec postgres-db psql -U zpulse -d zpulse -f /docker-entrypoint-initdb.d/init.sql
 
-# 4. 启动所有服务（使用预构建镜像）
+# 5. 启动所有服务（使用预构建镜像，环境变量从 .env 文件读取）
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+**重要说明**：
+- `.env` 文件**不需要**打包到镜像中
+- 镜像构建时只需要 `NEXT_PUBLIC_API_URL`（用于前端构建）
+- 运行时环境变量（数据库密码、API密钥等）通过 Docker Compose 从服务器的 `.env` 文件读取
+- 修改 `.env` 后只需重启服务，**不需要重新构建镜像**
+- 详细说明请参考：[使用预构建镜像时的 .env 配置说明](env-for-prebuilt-images.md)
 
 **两种方式的区别：**
 

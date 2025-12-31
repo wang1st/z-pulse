@@ -7,14 +7,16 @@
 ### 1. 阿里云服务器要求
 
 - **操作系统**: Ubuntu 20.04+ / CentOS 7+ / Debian 10+
-- **最低配置**: 
+- **最低配置**（推荐，因为镜像在开发机上构建）: 
   - CPU: 2核
-  - 内存: 4GB
+  - 内存: 2GB
   - 硬盘: 40GB SSD
 - **推荐配置**:
-  - CPU: 4核
-  - 内存: 8GB
-  - 硬盘: 100GB SSD
+  - CPU: 2核
+  - 内存: 4GB
+  - 硬盘: 60GB SSD
+
+**注意**：由于镜像在开发机上构建，服务器只需运行容器，配置要求较低。
 
 ### 2. 网络要求
 
@@ -239,44 +241,50 @@ WEB_URL=https://your-domain.com
 NEXT_PUBLIC_API_URL=https://your-domain.com/api
 ```
 
-## 🚀 第四步：启动服务
+## 🚀 第四步：构建和部署镜像
 
-### 4.1 选择部署方式
+**本部署方案采用在开发机上构建镜像，然后传输到服务器的方式。这样可以降低服务器配置要求，加快部署速度。**
 
-**方式A：在服务器上直接构建（需要较高配置）**
+### 4.1 在开发机上构建镜像
 
-如果服务器配置足够（推荐 4GB+ 内存），可以直接在服务器上构建：
+#### 步骤1：准备开发环境
 
-```bash
-# 初始化数据库
-docker compose up -d postgres-db
-sleep 10
-docker compose exec postgres-db psql -U zpulse -d zpulse -f /docker-entrypoint-initdb.d/init.sql
-
-# 构建并启动所有服务
-docker compose up -d --build
-```
-
-**方式B：在开发机上构建后传输（推荐，适用于低配置服务器）**
-
-如果服务器配置较低（如 2GB 内存），建议在开发机上构建镜像后传输到服务器：
-
-#### 在开发机上（本地 Mac/Windows/Linux）：
+在您的本地开发机（Mac/Windows/Linux）上：
 
 ```bash
 # 1. 进入项目目录
 cd /Users/ethan/Codes/z-pulse  # 或您的项目路径
 
-# 2. 确保有 .env 文件（用于构建参数）
-cp env.example .env
-# 编辑 .env，至少设置 NEXT_PUBLIC_API_URL
+# 2. 拉取最新代码（如果还没有）
+git pull origin main
 
-# 3. 构建并导出镜像
+# 3. 准备构建环境变量（只需要 NEXT_PUBLIC_API_URL）
+cp env.example .env
+# 编辑 .env，设置 NEXT_PUBLIC_API_URL（用于前端构建）
+# 其他变量可以留空，因为运行时在服务器上配置
+nano .env
+# 至少设置：NEXT_PUBLIC_API_URL=https://your-domain.com/api
+
+# 4. 拉取并导出外部镜像（postgres, redis, nginx, we-mp-rss）
+echo "正在拉取外部镜像..."
+docker pull postgres:15-alpine
+docker pull redis:7-alpine
+docker pull nginx:latest
+docker pull rachelos/we-mp-rss:latest
+
+echo "正在导出外部镜像..."
+docker save postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest -o z-pulse-external-images.tar
+
+# 5. 构建并导出应用镜像（后端和前端）
 chmod +x scripts/build-and-export-images.sh
 ./scripts/build-and-export-images.sh
 
-# 4. 传输镜像文件到服务器
+# 6. 传输所有镜像文件到服务器
+echo "正在传输镜像文件到服务器..."
+scp z-pulse-external-images.tar root@your-server-ip:/opt/z-pulse/
 scp z-pulse-built-images.tar root@your-server-ip:/opt/z-pulse/
+
+echo "✅ 镜像文件已传输完成！"
 ```
 
 #### 在服务器上：
@@ -428,7 +436,7 @@ docker compose restart reverse-proxy
 ### 6.1 检查服务状态
 
 ```bash
-docker compose ps
+docker compose -f docker-compose.prod.yml ps
 ```
 
 所有服务应该显示为 `Up` 状态。
@@ -443,7 +451,7 @@ curl http://localhost:8000/api/health
 curl http://localhost:3000
 
 # 检查数据库
-docker compose exec postgres-db pg_isready -U zpulse
+docker compose -f docker-compose.prod.yml exec postgres-db pg_isready -U zpulse
 ```
 
 ### 6.3 访问系统
@@ -459,7 +467,7 @@ docker compose exec postgres-db pg_isready -U zpulse
 在旧服务器上：
 
 ```bash
-docker compose exec postgres-db pg_dump -U zpulse zpulse > backup.sql
+docker compose -f docker-compose.prod.yml exec postgres-db pg_dump -U zpulse zpulse > backup.sql
 ```
 
 ### 7.2 导入到新数据库
@@ -467,7 +475,7 @@ docker compose exec postgres-db pg_dump -U zpulse zpulse > backup.sql
 在新服务器上：
 
 ```bash
-docker compose exec -T postgres-db psql -U zpulse -d zpulse < backup.sql
+docker compose -f docker-compose.prod.yml exec -T postgres-db psql -U zpulse -d zpulse < backup.sql
 ```
 
 ## 🛠️ 维护和监控
@@ -476,73 +484,74 @@ docker compose exec -T postgres-db psql -U zpulse -d zpulse < backup.sql
 
 ```bash
 # 所有服务日志
-docker compose logs -f
+docker compose -f docker-compose.prod.yml logs -f
 
 # 特定服务日志
-docker compose logs -f api-backend
-docker compose logs -f ai-worker
+docker compose -f docker-compose.prod.yml logs -f api-backend
+docker compose -f docker-compose.prod.yml logs -f ai-worker
 ```
 
 ### 备份数据库
 
 ```bash
-docker compose exec postgres-db pg_dump -U zpulse zpulse > backup_$(date +%Y%m%d).sql
+docker compose -f docker-compose.prod.yml exec postgres-db pg_dump -U zpulse zpulse > backup_$(date +%Y%m%d).sql
 ```
 
 ### 更新系统
 
 **重要提示**：由于 Git 历史已重置，如果服务器上已有旧代码，请使用"第二步：上传项目代码"中的更新方法。
 
-**如果已使用新代码库，后续更新方法：**
+**后续更新方法（在开发机上构建后传输）：**
 
-#### 方式A：在服务器上直接构建
-
-```bash
-# 进入项目目录
-cd /opt/z-pulse
-
-# 拉取最新代码
-git pull origin main
-
-# 重新构建并启动（如果需要）
-docker compose up -d --build
-
-# 或者只重启服务（如果只是配置变更）
-docker compose restart
-```
-
-#### 方式B：在开发机上构建后传输（推荐，适用于低配置服务器）
-
-**在开发机上：**
+#### 在开发机上：
 
 ```bash
-# 1. 拉取最新代码
+# 1. 进入项目目录
 cd /Users/ethan/Codes/z-pulse
+
+# 2. 拉取最新代码
 git pull origin main
 
-# 2. 重新构建并导出镜像
+# 3. 检查是否需要重新构建外部镜像（通常不需要）
+# 如果外部镜像有更新，需要重新导出：
+# docker pull postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest
+# docker save postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest -o z-pulse-external-images.tar
+# scp z-pulse-external-images.tar root@your-server-ip:/opt/z-pulse/
+
+# 4. 重新构建并导出应用镜像
 ./scripts/build-and-export-images.sh
 
-# 3. 传输到服务器
+# 5. 传输镜像到服务器
 scp z-pulse-built-images.tar root@your-server-ip:/opt/z-pulse/
 ```
 
-**在服务器上：**
+#### 在服务器上：
 
 ```bash
-# 1. 拉取最新代码
+# 1. 进入项目目录
 cd /opt/z-pulse
+
+# 2. 拉取最新代码（获取配置文件和脚本更新）
 git pull origin main
 
-# 2. 停止服务
+# 3. 停止服务
 docker compose -f docker-compose.prod.yml down
 
-# 3. 导入新镜像
+# 4. 导入新镜像（如果外部镜像有更新，也需要导入）
+# docker load -i z-pulse-external-images.tar  # 如果需要
 ./scripts/import-built-images.sh z-pulse-built-images.tar
 
-# 4. 启动服务
+# 5. 启动服务
 docker compose -f docker-compose.prod.yml up -d
+
+# 6. 查看服务状态
+docker compose -f docker-compose.prod.yml ps
 ```
+
+**注意**：
+- 如果只是修改了 `.env` 配置，不需要重新构建镜像，只需重启服务
+- 如果修改了代码，需要在开发机上重新构建镜像
+- 如果修改了 `NEXT_PUBLIC_API_URL`，需要重新构建前端镜像
 
 ## 🐛 常见问题
 
@@ -736,32 +745,34 @@ ufw status
 # 或者从其他环境导入镜像（见方案4）
 ```
 
-#### 方案4：从其他环境导入镜像（推荐，最可靠）
+#### 方案4：从开发机导入镜像（推荐，最可靠）
 
-如果镜像加速器完全无法工作，可以从可以访问 Docker Hub 的环境导入镜像：
+**这是本部署方案的标准流程，已在"第四步：构建和部署镜像"中说明。**
+
+如果遇到 Docker Hub 连接超时，请按照部署流程，在开发机上拉取并导出外部镜像：
 
 ```bash
-# 在可以访问 Docker Hub 的机器上（如您的本地开发机）：
+# 在开发机上（已包含在部署流程中）：
 docker pull postgres:15-alpine
 docker pull redis:7-alpine
 docker pull nginx:latest
 docker pull rachelos/we-mp-rss:latest
 
 # 导出镜像
-docker save postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest -o z-pulse-images.tar
+docker save postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest -o z-pulse-external-images.tar
 
-# 传输到服务器（使用 scp）
-scp z-pulse-images.tar root@your-server-ip:/opt/z-pulse/
+# 传输到服务器
+scp z-pulse-external-images.tar root@your-server-ip:/opt/z-pulse/
 
 # 在服务器上导入镜像
 cd /opt/z-pulse
-docker load -i z-pulse-images.tar
+docker load -i z-pulse-external-images.tar
 
 # 验证镜像已导入
 docker images | grep -E "postgres|redis|nginx|we-mp-rss"
 
 # 然后启动服务（不会再去拉取镜像）
-docker compose up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 #### 方案3：使用代理（如果有）
@@ -780,18 +791,26 @@ systemctl daemon-reload
 systemctl restart docker
 ```
 
-### 问题：前端镜像构建失败
+### 问题：构建镜像失败
 
-如果 `frontend-web` 服务构建失败，可能是网络问题导致 npm 包下载失败：
+如果构建镜像时遇到问题：
 
 ```bash
-# 方案1：使用国内 npm 镜像（在 Dockerfile 中配置）
-# 或手动构建前端镜像
-cd frontend
-docker build --build-arg NEXT_PUBLIC_API_URL=http://api-backend:8000 -t zpulse-frontend:latest .
+# 1. 检查网络连接（开发机上）
+# 确保可以访问 Docker Hub 和 npm registry
 
-# 方案2：使用已构建的镜像（如果有）
-# 从其他环境导出镜像并导入
+# 2. 清理 Docker 缓存后重试
+docker system prune -a
+
+# 3. 单独构建镜像进行调试
+# 后端镜像
+docker build -t zpulse-backend:latest -f backend/Dockerfile .
+
+# 前端镜像
+docker build -t zpulse-frontend:latest --build-arg NEXT_PUBLIC_API_URL=https://your-domain.com/api -f frontend/Dockerfile frontend/
+
+# 4. 如果构建成功，手动导出
+docker save zpulse-backend:latest zpulse-frontend:latest -o z-pulse-built-images.tar
 ```
 
 ## 相关文档

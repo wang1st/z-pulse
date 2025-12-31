@@ -364,12 +364,10 @@ docker compose -f docker-compose.prod.yml ps
 - 修改 `.env` 后只需重启服务，**不需要重新构建镜像**
 - 详细说明请参考：[使用预构建镜像时的 .env 配置说明](env-for-prebuilt-images.md)
 
-```
-
 ### 4.3 创建管理员账户
 
 ```bash
-docker compose exec api-backend python -c "
+docker compose -f docker-compose.prod.yml exec api-backend python -c "
 import sys
 sys.path.insert(0, '/app')
 from shared.database import SessionLocal, User

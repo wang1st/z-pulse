@@ -364,20 +364,6 @@ docker compose -f docker-compose.prod.yml ps
 - 修改 `.env` 后只需重启服务，**不需要重新构建镜像**
 - 详细说明请参考：[使用预构建镜像时的 .env 配置说明](env-for-prebuilt-images.md)
 
-**两种方式的区别：**
-
-- **方式A**：服务器需要足够内存（4GB+）和 CPU 来构建镜像，构建时间较长
-- **方式B**：服务器只需运行镜像，内存需求低（2GB 即可），启动速度快
-
-### 4.2 启动所有服务（方式A：直接构建）
-
-```bash
-# 如果遇到 Docker Hub 连接超时，请先配置镜像加速器（见下方"常见问题"部分）
-# 然后尝试拉取镜像
-docker compose pull
-
-# 启动所有服务
-docker compose up -d
 ```
 
 ### 4.3 创建管理员账户

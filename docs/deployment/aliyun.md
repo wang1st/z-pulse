@@ -104,11 +104,72 @@ yum install git -y
 
 ### 2.1 方式一：使用 Git（推荐）
 
+#### 首次部署（新服务器）
+
 ```bash
 # 在云主机上克隆项目
 cd /opt
-git clone <your-repo-url> z-pulse
+git clone https://gitee.com/wang1st/z-pulse.git z-pulse
 cd z-pulse
+```
+
+#### 更新代码（已有仓库）
+
+如果服务器上已经有旧版本的代码，由于 Git 历史已重置，需要重新克隆：
+
+**方案A：删除旧仓库重新克隆（推荐，最简单）**
+
+```bash
+# 1. 备份重要文件（如 .env 配置文件）
+cd /opt/z-pulse
+cp .env .env.backup 2>/dev/null || echo "没有 .env 文件"
+
+# 2. 停止所有服务
+docker compose down
+
+# 3. 返回上级目录并删除旧仓库
+cd /opt
+rm -rf z-pulse
+
+# 4. 重新克隆最新代码
+git clone https://gitee.com/wang1st/z-pulse.git z-pulse
+cd z-pulse
+
+# 5. 恢复配置文件
+cp ../.env.backup .env 2>/dev/null || echo "需要重新配置 .env"
+
+# 6. 检查代码版本
+git log --oneline -1
+# 应该显示: Initial commit: Z-Pulse 财政信息聚合系统
+```
+
+**方案B：重置现有仓库（保留工作目录）**
+
+```bash
+# 1. 进入项目目录
+cd /opt/z-pulse
+
+# 2. 停止所有服务
+docker compose down
+
+# 3. 备份配置文件
+cp .env .env.backup 2>/dev/null
+
+# 4. 删除旧的 Git 历史
+rm -rf .git
+
+# 5. 重新初始化并拉取代码
+git init
+git remote add origin https://gitee.com/wang1st/z-pulse.git
+git fetch origin
+git reset --hard origin/main
+git branch -M main
+
+# 6. 恢复配置文件
+cp .env.backup .env 2>/dev/null || echo "需要重新配置 .env"
+
+# 7. 验证
+git log --oneline -1
 ```
 
 ### 2.2 方式二：使用 SCP 上传
@@ -173,16 +234,69 @@ NEXT_PUBLIC_API_URL=https://your-domain.com/api
 
 ## 🚀 第四步：启动服务
 
-### 4.1 初始化数据库
+### 4.1 选择部署方式
+
+**方式A：在服务器上直接构建（需要较高配置）**
+
+如果服务器配置足够（推荐 4GB+ 内存），可以直接在服务器上构建：
 
 ```bash
+# 初始化数据库
 docker compose up -d postgres-db
-# 等待数据库启动（约10秒）
 sleep 10
 docker compose exec postgres-db psql -U zpulse -d zpulse -f /docker-entrypoint-initdb.d/init.sql
+
+# 构建并启动所有服务
+docker compose up -d --build
 ```
 
-### 4.2 启动所有服务
+**方式B：在开发机上构建后传输（推荐，适用于低配置服务器）**
+
+如果服务器配置较低（如 2GB 内存），建议在开发机上构建镜像后传输到服务器：
+
+#### 在开发机上（本地 Mac/Windows/Linux）：
+
+```bash
+# 1. 进入项目目录
+cd /Users/ethan/Codes/z-pulse  # 或您的项目路径
+
+# 2. 确保有 .env 文件（用于构建参数）
+cp env.example .env
+# 编辑 .env，至少设置 NEXT_PUBLIC_API_URL
+
+# 3. 构建并导出镜像
+chmod +x scripts/build-and-export-images.sh
+./scripts/build-and-export-images.sh
+
+# 4. 传输镜像文件到服务器
+scp z-pulse-built-images.tar root@your-server-ip:/opt/z-pulse/
+```
+
+#### 在服务器上：
+
+```bash
+# 1. 进入项目目录
+cd /opt/z-pulse
+
+# 2. 导入预构建的镜像
+chmod +x scripts/import-built-images.sh
+./scripts/import-built-images.sh z-pulse-built-images.tar
+
+# 3. 初始化数据库
+docker compose -f docker-compose.prod.yml up -d postgres-db
+sleep 10
+docker compose -f docker-compose.prod.yml exec postgres-db psql -U zpulse -d zpulse -f /docker-entrypoint-initdb.d/init.sql
+
+# 4. 启动所有服务（使用预构建镜像）
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**两种方式的区别：**
+
+- **方式A**：服务器需要足够内存（4GB+）和 CPU 来构建镜像，构建时间较长
+- **方式B**：服务器只需运行镜像，内存需求低（2GB 即可），启动速度快
+
+### 4.2 启动所有服务（方式A：直接构建）
 
 ```bash
 # 如果遇到 Docker Hub 连接超时，请先配置镜像加速器（见下方"常见问题"部分）
@@ -336,12 +450,57 @@ docker compose exec postgres-db pg_dump -U zpulse zpulse > backup_$(date +%Y%m%d
 
 ### 更新系统
 
-```bash
-# 拉取最新代码
-git pull
+**重要提示**：由于 Git 历史已重置，如果服务器上已有旧代码，请使用"第二步：上传项目代码"中的更新方法。
 
-# 重新构建并启动
+**如果已使用新代码库，后续更新方法：**
+
+#### 方式A：在服务器上直接构建
+
+```bash
+# 进入项目目录
+cd /opt/z-pulse
+
+# 拉取最新代码
+git pull origin main
+
+# 重新构建并启动（如果需要）
 docker compose up -d --build
+
+# 或者只重启服务（如果只是配置变更）
+docker compose restart
+```
+
+#### 方式B：在开发机上构建后传输（推荐，适用于低配置服务器）
+
+**在开发机上：**
+
+```bash
+# 1. 拉取最新代码
+cd /Users/ethan/Codes/z-pulse
+git pull origin main
+
+# 2. 重新构建并导出镜像
+./scripts/build-and-export-images.sh
+
+# 3. 传输到服务器
+scp z-pulse-built-images.tar root@your-server-ip:/opt/z-pulse/
+```
+
+**在服务器上：**
+
+```bash
+# 1. 拉取最新代码
+cd /opt/z-pulse
+git pull origin main
+
+# 2. 停止服务
+docker compose -f docker-compose.prod.yml down
+
+# 3. 导入新镜像
+./scripts/import-built-images.sh z-pulse-built-images.tar
+
+# 4. 启动服务
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ## 🐛 常见问题

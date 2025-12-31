@@ -99,11 +99,18 @@ docker compose -f docker-compose.prod.yml up -d
 # 修改 .env 文件后
 nano .env
 
-# 重启服务使配置生效
-docker compose -f docker-compose.prod.yml restart
-# 或
+# 方式1：重新创建容器（推荐，确保环境变量完全加载）
+docker compose -f docker-compose.prod.yml down
 docker compose -f docker-compose.prod.yml up -d
+
+# 方式2：快速重启（适用于小改动）
+docker compose -f docker-compose.prod.yml restart
 ```
+
+**注意**：
+- 修改数据库相关配置（如 `POSTGRES_PASSWORD`）时，建议使用方式1
+- 修改API密钥等配置时，可以使用方式2
+- 详细说明请参考：[更新 .env 配置并应用更改](update-env.md)
 
 ## 常见问题
 

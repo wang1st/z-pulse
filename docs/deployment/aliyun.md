@@ -312,7 +312,16 @@ docker compose -f docker-compose.prod.yml up -d postgres-db
 sleep 10
 docker compose -f docker-compose.prod.yml exec postgres-db psql -U zpulse -d zpulse -f /docker-entrypoint-initdb.d/init.sql
 
-# 5. 启动所有服务（使用预构建镜像，环境变量从 .env 文件读取）
+# 5. 确保所有外部镜像已导入（如果之前没有导入）
+# 检查镜像是否存在
+docker images | grep -E "postgres:15-alpine|redis:7-alpine|nginx:latest|rachelos/we-mp-rss:latest"
+
+# 如果缺少外部镜像，需要先导入（参考下方"常见问题"中的 Docker Hub 连接超时解决方案）
+# 或从开发机导出外部镜像并导入：
+# 在开发机上：docker save postgres:15-alpine redis:7-alpine nginx:latest rachelos/we-mp-rss:latest -o z-pulse-external-images.tar
+# 传输到服务器后：docker load -i z-pulse-external-images.tar
+
+# 6. 启动所有服务（使用预构建镜像，环境变量从 .env 文件读取）
 docker compose -f docker-compose.prod.yml up -d
 ```
 

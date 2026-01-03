@@ -115,15 +115,20 @@ services:
       - ENABLE_JOB=True
       # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session 导致无法更新“今天文章”）
       - WERSS_AUTH_WEB=True
-      # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在“获取二维码”
+      # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在"获取二维码"
       # 固定到容器内的持久化目录（挂载在 /app/data），避免每次重建都重新下载
       - PLAYWRIGHT_BROWSERS_PATH=/app/data/driver/_x86_64
       # 实测登录链路依赖 chromium_headless_shell（playwright build v1187）
       - BROWSER_TYPE=chromium-headless-shell
-      # we-mp-rss 默认 threads=2 会导致登录状态在多进程间不同步；强制单进程避免 /qr/status 轮询异常
-      - THREADS=1
+      # 跳过 Playwright 浏览器安装（依赖已安装，无需重复安装）
+      - INSTALL=False
+      # 线程数配置：2线程平衡效率和稳定性（weRSS默认值，基本可用）
+      # 注意：多线程可能导致登录状态同步问题，但可以提高抓取效率
+      # 如果出现大量验证错误，可降回 THREADS=1
+      - THREADS=2
       # we-mp-rss 的 SPAN_INTERVAL 实际对应 config.yaml 的 interval：每篇稿件/请求间隔（秒），允许 1-60
-      - SPAN_INTERVAL=8  # 每篇稿件间隔 8 秒（更稳：降低风控与超时概率）
+      # 多线程时适当增加间隔以降低风控风险
+      - SPAN_INTERVAL=10  # 每篇稿件间隔 10 秒（多线程时降低风控与超时概率）
       - DB=sqlite:///data/werss.db
       - RSS_BASE_URL=${RSS_BASE_URL:-http://localhost:8080}
       - RSS_FULL_CONTEXT=True
@@ -135,7 +140,7 @@ services:
       - GATHER.CONTENT_AUTO_CHECK=False
       - GATHER.CONTENT_AUTO_INTERVAL=1440
       # 采集配置
-      - MAX_PAGE=10
+      - MAX_PAGE=10  # 抓取10页（如果不止抓第一页，10页足够）
       - RSS_PAGE_SIZE=50
       - SECRET_KEY=${WERSS_SECRET_KEY:-zpulse-rss}
     networks:

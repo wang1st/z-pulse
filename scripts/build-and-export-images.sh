@@ -41,16 +41,16 @@ else
     echo -e "${YELLOW}提示: 未找到 .env 文件，将使用默认值${NC}"
 fi
 
-# 设置镜像标签
-BACKEND_IMAGE="zpulse-backend:latest"
-FRONTEND_IMAGE="zpulse-frontend:latest"
+# 设置镜像标签（使用 server 标签，避免覆盖本地镜像）
+BACKEND_IMAGE="zpulse-backend:server"
+FRONTEND_IMAGE="zpulse-frontend:server"
 OUTPUT_FILE="z-pulse-built-images.tar"
 
 echo -e "${YELLOW}步骤 1: 构建后端镜像...${NC}"
 echo "  这可能需要几分钟，请耐心等待..."
 
-# 直接使用 docker build 构建后端镜像
-docker build -t "${BACKEND_IMAGE}" -f backend/Dockerfile .
+# 直接使用 docker build 构建后端镜像（指定平台为 linux/amd64，兼容服务器）
+docker build --platform linux/amd64 -t "${BACKEND_IMAGE}" -f backend/Dockerfile .
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓${NC} 后端镜像构建完成: ${BACKEND_IMAGE}"
@@ -66,8 +66,8 @@ echo "  这可能需要几分钟，请耐心等待..."
 # 设置构建参数
 NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://api-backend:8000}"
 
-# 直接使用 docker build 构建前端镜像
-docker build -t "${FRONTEND_IMAGE}" \
+# 直接使用 docker build 构建前端镜像（指定平台为 linux/amd64，兼容服务器）
+docker build --platform linux/amd64 -t "${FRONTEND_IMAGE}" \
     --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
     -f frontend/Dockerfile \
     frontend/
@@ -83,7 +83,10 @@ echo ""
 echo -e "${YELLOW}步骤 3: 导出镜像...${NC}"
 echo "  正在导出 ${BACKEND_IMAGE} 和 ${FRONTEND_IMAGE}..."
 
-docker save "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}" -o "${OUTPUT_FILE}"
+# 导出时重新标记为 latest，以便服务器使用
+docker tag "${BACKEND_IMAGE}" zpulse-backend:latest
+docker tag "${FRONTEND_IMAGE}" zpulse-frontend:latest
+docker save zpulse-backend:latest zpulse-frontend:latest -o "${OUTPUT_FILE}"
 
 if [ $? -eq 0 ]; then
     FILE_SIZE=$(du -h "${OUTPUT_FILE}" | cut -f1)

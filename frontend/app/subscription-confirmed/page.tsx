@@ -13,7 +13,7 @@ export default function SubscriptionConfirmedPage() {
             <div className="flex-1">
               <h1 className="text-2xl md:text-3xl font-black tracking-tight">订阅已成功激活</h1>
               <p className="mt-2 text-sm md:text-base text-white/70 leading-relaxed">
-                之后我们会将“这里财动”每日晨报发送到你的邮箱。若未收到，请先检查垃圾邮件/广告邮件。
+                之后我们会将“浙财脉动”每日晨报发送到你的邮箱。若未收到，请先检查垃圾邮件/广告邮件。
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link

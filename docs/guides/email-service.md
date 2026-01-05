@@ -34,7 +34,7 @@
 EMAIL_PROVIDER=brevo
 BREVO_API_KEY=your_brevo_api_key_here
 EMAIL_FROM=your-email@example.com
-EMAIL_FROM_NAME=这里财动
+EMAIL_FROM_NAME=浙财脉动
 ```
 
 ### 步骤4: 重启服务
@@ -66,7 +66,7 @@ docker compose restart api-backend ai-worker
 EMAIL_PROVIDER=sendgrid
 SENDGRID_API_KEY=your_sendgrid_api_key_here
 EMAIL_FROM=your-email@example.com
-EMAIL_FROM_NAME=这里财动
+EMAIL_FROM_NAME=浙财脉动
 ```
 
 ### 步骤4: 重启服务

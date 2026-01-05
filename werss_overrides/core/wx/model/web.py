@@ -160,9 +160,4 @@ class MpsWeb(WxGather):
                                  CallBack=Item_Over_CallBack)
         
         super().Over(CallBack=Over_CallBack)
-        
-        # 恢复原始的 content_extract 方法（如果存在）
-        if original_content_extract is not None:
-            self.content_extract = original_content_extract
-        pass
 

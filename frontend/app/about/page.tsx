@@ -13,9 +13,9 @@ export default function AboutPage() {
         <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-7 md:p-10">
           <h1 className="text-3xl md:text-4xl font-black tracking-tight">关于我们</h1>
           <p className="mt-4 text-white/75 leading-relaxed">
-            <b>这里财动</b> 是一个面向所有人的浙江财政信息聚合平台，
+            <b>浙财脉动</b> 是一个面向所有人的浙江财政信息聚合平台，
             致力于信息平权，帮助大家了解浙江财政资金的使用方向和支持重点。无论您是否在浙江，无论是否有监督权，
-            都可以通过这里财动学习财政知识、了解政策动态、参与公共监督。我们通过大模型聚合每日财政信息，
+            都可以通过浙财脉动学习财政知识、了解政策动态、参与公共监督。我们通过大模型聚合每日财政信息，
             让您在 1 分钟内掌握当天全省财政相关信息的主脉络，并且做到<b>来源可查</b>、<b>事实优先</b>。
           </p>
 

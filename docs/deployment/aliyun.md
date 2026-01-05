@@ -234,7 +234,7 @@ DASHSCOPE_API_KEY=your_aliyun_qwen_api_key
 EMAIL_PROVIDER=brevo  # 或 sendgrid
 BREVO_API_KEY=your_brevo_api_key
 EMAIL_FROM=your-email@example.com
-EMAIL_FROM_NAME=这里财动
+EMAIL_FROM_NAME=浙财脉动
 
 # 网站URL（生产环境）
 WEB_URL=https://your-domain.com

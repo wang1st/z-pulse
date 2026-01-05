@@ -82,7 +82,7 @@ export function SmartBrevityDaily(props: {
       <div className="px-8 py-16 md:px-16" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">这里财动</h1>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">浙财脉动</h1>
             <p className="text-lg text-white/80">大模型聚合的财政情报 · 每日10点更新</p>
           </div>
           <div className="text-right">

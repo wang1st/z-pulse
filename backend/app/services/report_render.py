@@ -127,7 +127,7 @@ def render_daily_report_html(report_json: Dict[str, Any]) -> str:
         html.append('<div class="hero-padding" style="position:relative;padding:20px 16px;">')
         html.append('<div style="display:flex;flex-direction:column;align-items:flex-start;gap:12px;">')
         html.append('<div style="width:100%;">')
-        html.append('<h1 class="hero-title" style="font-size:36px;font-weight:700;letter-spacing:-0.025em;color:#ffffff;margin:0 0 8px 0;line-height:1.05;">这里财动</h1>')
+        html.append('<h1 class="hero-title" style="font-size:36px;font-weight:700;letter-spacing:-0.025em;color:#ffffff;margin:0 0 8px 0;line-height:1.05;">浙财脉动</h1>')
         html.append('<p class="hero-subtitle" style="font-size:14px;color:rgba(255,255,255,0.8);margin:0;line-height:1.5;">大模型聚合的财政情报 · 每日10点更新</p>')
         html.append("</div>")
         html.append('<div style="text-align:left;width:100%;">')
@@ -819,7 +819,7 @@ def render_weekly_report_text(summary_markdown: str, report_date: str, date_rang
             pass
     
     lines: List[str] = []
-    lines.append("这里财动周报")
+    lines.append("浙财脉动周报")
     lines.append(header_date)
     lines.append("")
     
@@ -921,7 +921,7 @@ def render_weekly_report_html(summary_markdown: str, report_date: str, date_rang
         html.append('<div style="position:relative;padding:20px 16px;">')
         html.append('<div style="display:flex;flex-direction:column;align-items:flex-start;gap:12px;">')
         html.append('<div style="width:100%;">')
-        html.append('<h1 style="font-size:36px;font-weight:700;letter-spacing:-0.025em;color:#ffffff;margin:0 0 8px 0;line-height:1.05;">这里财动</h1>')
+        html.append('<h1 style="font-size:36px;font-weight:700;letter-spacing:-0.025em;color:#ffffff;margin:0 0 8px 0;line-height:1.05;">浙财脉动</h1>')
         html.append('<p style="font-size:14px;color:rgba(255,255,255,0.8);margin:0;line-height:1.5;">大模型聚合的财政情报 · 每周一11点更新</p>')
         html.append("</div>")
         html.append('<div style="text-align:left;width:100%;">')
@@ -937,7 +937,7 @@ def render_weekly_report_html(summary_markdown: str, report_date: str, date_rang
         html.append('<div style="position:relative;padding:20px 24px;">')
         html.append('<div style="display:flex;align-items:center;justify-content:space-between;gap:20px;">')
         html.append('<div style="flex:1;">')
-        html.append('<h1 style="font-size:36px;font-weight:700;letter-spacing:-0.025em;color:#ffffff;margin:0 0 8px 0;line-height:1.05;">这里财动</h1>')
+        html.append('<h1 style="font-size:36px;font-weight:700;letter-spacing:-0.025em;color:#ffffff;margin:0 0 8px 0;line-height:1.05;">浙财脉动</h1>')
         html.append('<p style="font-size:14px;color:rgba(255,255,255,0.8);margin:0;line-height:1.5;">大模型聚合的财政情报 · 每周一11点更新</p>')
         html.append("</div>")
         html.append('<div style="text-align:right;flex-shrink:0;">')
@@ -1075,7 +1075,7 @@ def render_daily_report_html_for_pdf(report_json: Dict[str, Any]) -> str:
         html.append('<div style="background:linear-gradient(135deg, #0f172a 0%, #0f172a 100%);color:#ffffff;border-radius:12px;padding:16px 20px;margin-bottom:12px;">')
         html.append('<div style="display:flex;align-items:center;justify-content:space-between;">')
         html.append('<div>')
-        html.append('<h1 style="font-size:32px;font-weight:700;color:#ffffff;margin:0 0 6px 0;line-height:1.1;">这里财动</h1>')
+        html.append('<h1 style="font-size:32px;font-weight:700;color:#ffffff;margin:0 0 6px 0;line-height:1.1;">浙财脉动</h1>')
         html.append('<p style="font-size:13px;color:rgba(255,255,255,0.8);margin:0;line-height:1.3;">大模型聚合的财政情报 · 每日10点更新</p>')
         html.append("</div>")
         html.append('<div style="text-align:right;">')
@@ -1347,7 +1347,7 @@ def render_daily_report_pdf(report_json: Dict[str, Any], report_date: str) -> by
         size: A4;
         margin: 0.8cm;
         @bottom-center {
-            content: "这里财动 - 第 " counter(page) " 页";
+            content: "浙财脉动 - 第 " counter(page) " 页";
             font-size: 8pt;
             color: #6b7280;
         }
@@ -1404,7 +1404,7 @@ def render_daily_report_pdf(report_json: Dict[str, Any], report_date: str) -> by
     <html lang="zh-CN">
     <head>
         <meta charset="UTF-8">
-        <title>这里财动晨报</title>
+        <title>浙财脉动晨报</title>
     </head>
     <body>
         {html_content}
@@ -1450,7 +1450,7 @@ def render_weekly_report_pdf(summary_markdown: str, report_date: str, date_range
         size: A4;
         margin: 0.8cm;
         @bottom-center {
-            content: "这里财动周报 - 第 " counter(page) " 页";
+            content: "浙财脉动周报 - 第 " counter(page) " 页";
             font-size: 8pt;
             color: #6b7280;
         }

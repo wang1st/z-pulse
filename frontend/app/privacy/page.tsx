@@ -22,7 +22,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-lg font-black text-white">1. 我们是谁</h2>
               <p className="mt-2">
-                “这里财动”是一个浙江财政信息聚合平台，致力于信息平权，帮助所有人了解浙江财政资金的使用方向和支持重点。本政策说明我们如何收集、使用、存储与保护你的个人信息。
+                “浙财脉动”是一个浙江财政信息聚合平台，致力于信息平权，帮助所有人了解浙江财政资金的使用方向和支持重点。本政策说明我们如何收集、使用、存储与保护你的个人信息。
               </p>
             </section>
 

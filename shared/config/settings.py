@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     MAILGUN_API_KEY: Optional[str] = Field(default=None, env="MAILGUN_API_KEY")
     MAILGUN_DOMAIN: Optional[str] = Field(default=None, env="MAILGUN_DOMAIN")
     EMAIL_FROM: str = Field(default="noreply@zpulse.com", env="EMAIL_FROM")
-    EMAIL_FROM_NAME: str = Field(default="这里财动", env="EMAIL_FROM_NAME")
+    EMAIL_FROM_NAME: str = Field(default="浙财脉动", env="EMAIL_FROM_NAME")
     
     # PDF附件配置
     ENABLE_PDF_ATTACHMENT: bool = Field(default=True, env="ENABLE_PDF_ATTACHMENT")  # 是否在邮件中包含PDF附件

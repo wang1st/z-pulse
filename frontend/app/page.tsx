@@ -23,7 +23,7 @@ export default function Home() {
             </div>
 
             <h1 className="mt-6 text-[42px] md:text-[64px] leading-[1.05] font-black tracking-tight text-slate-900">
-              这里财动
+              浙财脉动
             </h1>
             <p className="mt-4 text-base md:text-lg text-slate-600 leading-relaxed">
               每天 1 分钟，把浙江各地官微发布的财政相关动态浓缩成一份可追溯、可点击引用的"今日焦点"。
@@ -105,7 +105,7 @@ export default function Home() {
               <div className="max-w-xl">
                 <div className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">订阅每日晨报</div>
                 <div className="mt-2 text-sm md:text-base text-slate-600 leading-relaxed">
-                  用邮箱接收"这里财动"每日财政信息摘要。我们只发送你订阅的内容，不做营销邮件。
+                  用邮箱接收"浙财脉动"每日财政信息摘要。我们只发送你订阅的内容，不做营销邮件。
                 </div>
               </div>
               <div className="w-full md:max-w-md">
@@ -119,7 +119,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-slate-50 py-10">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-slate-600">© {new Date().getFullYear()} 这里财动 · Z-Pulse</p>
+          <p className="text-sm text-slate-600">© {new Date().getFullYear()} 浙财脉动 · Z-Pulse</p>
           <div className="mt-4 text-sm">
             <Link href="/about" className="text-slate-600 hover:text-slate-900 mx-2 transition-colors">
               关于我们

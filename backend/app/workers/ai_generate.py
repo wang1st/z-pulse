@@ -646,12 +646,16 @@ class AIWorker:
                 logger.error("Failed to generate weekly review")
                 return
 
+            # 在周报末尾添加免责声明
+            disclaimer = "\n\n---\n\n**免责声明**：本报告由大模型自动生成，内容基于公开信息进行总结和分析，仅作为不同视角的参考，不构成任何投资建议或决策依据。"
+            markdown_content_with_disclaimer = markdown_content + disclaimer
+
             # 保存周报（使用Markdown格式）
             report = Report(
                 report_type=ReportType.WEEKLY,
                 report_date=end_date,  # 周一日期
                 title=f"财政周报述评 - {start_date.strftime('%Y年%m月%d日')} 至 {end_date.strftime('%m月%d日')}",
-                summary_markdown=markdown_content,  # 存储Markdown综述
+                summary_markdown=markdown_content_with_disclaimer,  # 存储Markdown综述（包含免责声明）
                 analysis_markdown=None,
                 article_count=sum(r.article_count for r in daily_reports),
                 source_article_ids=[],
@@ -983,6 +987,10 @@ class AIWorker:
             "政府采购", "招标", "投标", "中标",
             "专项债", "债券", "国债", "基金", "融资",
             "预算执行", "绩效", "转移支付", "财会", "审计", "国资", "国企",
+            # 扩展关键词：消费券、以旧换新、国补等
+            "消费券", "以旧换新", "国补", "申领", "发放", "领取", "申请", "政策",
+            "资金", "费用", "免费", "减免", "优惠", "福利", "待遇", "标准",
+            "采购", "项目", "投资", "建设", "发展", "经济", "产业",
         ]
         strong_finance_kw = set(finance_kw)
         non_finance_title_kw = [
@@ -997,6 +1005,7 @@ class AIWorker:
             t = t.strip()
             if not t:
                 return False
+            # 使用更宽松的启发式：只要包含任何财政关键词就保留
             return any(k in t for k in finance_kw)
 
         def _looks_non_finance(a) -> bool:
@@ -1015,17 +1024,21 @@ class AIWorker:
 
 任务: 阅读每篇文章的标题与正文片段，判断“是否与财政/资金/税费/补贴/政府采购招投标/专项债等明确相关”。
 
-判为【相关】的必要条件（满足其一即可）：
+判为【相关】的条件（满足其一即可）：
 - 明确出现财政/预算/决算/预算执行/转移支付/财政资金/专项资金/经费/拨款/资金来源等
 - 明确出现税收/税务/减税降费/收费减免等
 - 明确出现补贴/补助/津贴/救助/低保/医保/社保/公积金等“给付/待遇/资金标准/申领口径”
 - 明确出现政府采购/招标/投标/中标/采购公告等
 - 明确出现专项债/国债/地方债/债券/融资等
+- 明确出现消费券/以旧换新/国补/申领/发放/领取等与资金补贴相关的政策
+- 明确出现资金/费用/免费/减免/优惠/福利/待遇等与财政支出相关的表述
+- 涉及政府投资/项目建设/产业发展等与财政资金投入相关的内容
 
 判为【不相关】（除非正文明确出现上述财政要素）：
-- 天气预报、节假日通知、文化旅游宣传、演出赛事、好人表彰、摄影打卡、交通绕行/抓拍、单纯会议报道/领导活动等。
+- 纯天气预报、节假日通知、文化旅游宣传、演出赛事、好人表彰、摄影打卡、交通绕行/抓拍等
+- 纯会议报道/领导活动（除非涉及财政政策或资金安排）
 
-重要：如果不确定，判为【不相关】（宁可漏掉，也不要把全部文章都判为相关）。
+重要：如果文章标题或正文中明确出现补贴、申领、发放、以旧换新、国补、消费券等关键词，应判为【相关】。如果不确定，倾向于判为【相关】（避免漏掉重要财政信息）。
 
 输出格式(严格)：只输出 JSON（不要其他文字）。
 {"items":[{"n":1,"keep":0},{"n":2,"keep":1}]} 其中 keep=1 表示相关，keep=0 表示不相关。items 必须覆盖所有给定序号。"""
@@ -1109,9 +1122,14 @@ class AIWorker:
                     keep = decisions_keep.get(article_num)
                     if keep is None:
                         missing += 1
+                        # 如果AI没有给出判断，使用启发式：包含财政关键词就保留
                         keep = 1 if _heuristic_keep(article) else 0
+                    # 放宽限制：即使_looks_non_finance返回True，如果包含强财政关键词，仍然保留
                     if keep == 1 and _looks_non_finance(article):
-                        keep = 0
+                        # 检查是否包含强财政关键词，如果有则保留
+                        title_content = (getattr(article, "title", "") or "") + " " + (getattr(article, "content", "") or "")
+                        if not any(kw in title_content for kw in strong_finance_kw):
+                            keep = 0
                     if keep == 1:
                         finance_related.append(article)
                         kept += 1

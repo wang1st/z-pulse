@@ -162,7 +162,7 @@ export function SmartBrevityDaily(props: {
         <div className="relative p-7 md:p-10">
           <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div>
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">这里财动</h1>
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">浙财脉动</h1>
               <p className="text-lg text-white/80">
                 大模型聚合的财政情报 · 每日10点更新
               </p>

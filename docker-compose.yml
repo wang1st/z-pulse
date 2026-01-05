@@ -231,7 +231,7 @@ services:
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
       - EMAIL_FROM=${EMAIL_FROM}
-      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-这里财动}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-浙财脉动}
       - WEB_URL=${WEB_URL:-http://localhost:3000}
       # Qwen model selection for cost optimization (configured via .env)
       - QWEN_DAILY_MODEL=${QWEN_DAILY_MODEL:-qwen-plus}

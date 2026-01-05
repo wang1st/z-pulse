@@ -364,7 +364,7 @@ EMAIL_PROVIDER=brevo  # 或 sendgrid
 BREVO_API_KEY=xkeysib-xxxxx  # Brevo API密钥
 SENDGRID_API_KEY=SG.xxxxx  # SendGrid API密钥
 EMAIL_FROM=noreply@yourdomain.com
-EMAIL_FROM_NAME=这里财动
+EMAIL_FROM_NAME=浙财脉动
 
 # 基础URL
 WEB_URL=http://localhost:3000

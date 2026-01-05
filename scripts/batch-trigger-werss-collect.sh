@@ -41,14 +41,14 @@ fi
 
 # 登录获取 token
 echo -e "${YELLOW}步骤 1: 登录 weRSS...${NC}"
-LOGIN_RESPONSE=$(curl -s -X POST "${WERSS_URL}/api/v1/wx/user/login" \
-    -H "Content-Type: application/json" \
-    -d "{\"username\":\"${WERSS_USERNAME}\",\"password\":\"${WERSS_PASSWORD}\"}")
+LOGIN_RESPONSE=$(curl -s -X POST "${WERSS_URL}/api/v1/wx/auth/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=${WERSS_USERNAME}&password=${WERSS_PASSWORD}")
 
 if [ "$USE_JQ" = true ]; then
-    TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.token // empty')
+    TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.access_token // empty')
 else
-    TOKEN=$(echo "$LOGIN_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('data', {}).get('token', ''))" 2>/dev/null || echo "")
+    TOKEN=$(echo "$LOGIN_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('data', {}).get('access_token', ''))" 2>/dev/null || echo "")
 fi
 
 if [ -z "$TOKEN" ]; then

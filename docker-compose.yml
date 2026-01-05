@@ -96,7 +96,8 @@ services:
     container_name: zpulse-rss
     working_dir: /app
     # Playwright/Chromium 在容器内容易因为 /dev/shm 太小而崩溃（表现为 browser closed / target closed）
-    shm_size: "1gb"
+    # 增加到 2gb 以提高浏览器稳定性
+    shm_size: "2gb"
     ports:
       - "8080:8001"
       # we-mp-rss v1.4.8 的 Web UI 与 API 同端口（8001）。将 3001 也映射到 8001，方便从浏览器访问。
@@ -105,6 +106,12 @@ services:
       - rss_bridge_data:/app/data
       # Hotfix we-mp-rss v1.4.8: /api/v1/wx/auth/qr/status calls WX_API.HasLogin() but HasLogin is a bool
       - ./werss_overrides/apis/auth.py:/app/apis/auth.py:ro
+      # 修复 RSS 采集卡死问题：添加超时保护和错误处理
+      - ./werss_overrides/driver/playwright_driver.py:/app/driver/playwright_driver.py:ro
+      - ./werss_overrides/driver/wxarticle.py:/app/driver/wxarticle.py:ro
+      - ./werss_overrides/main.py:/app/main.py:ro
+      # 修复分页问题：确保能爬取多页
+      - ./werss_overrides/core/wx/model/web.py:/app/core/wx/model/web.py:ro
     environment:
       - TZ=Asia/Shanghai
       - APP_NAME=ZPulse RSS Bridge
@@ -112,7 +119,7 @@ services:
       - PORT=8001
       - WEB_PORT=3000
       - ENABLE_WEB=True
-      - ENABLE_JOB=True
+      - ENABLE_JOB=False
       # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session 导致无法更新“今天文章”）
       - WERSS_AUTH_WEB=True
       # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在"获取二维码"
@@ -121,11 +128,13 @@ services:
       # 实测登录链路依赖 chromium_headless_shell（playwright build v1187）
       - BROWSER_TYPE=chromium-headless-shell
       # 跳过 Playwright 浏览器安装（依赖已安装，无需重复安装）
-      - INSTALL=False
-      # 线程数配置：2线程平衡效率和稳定性（weRSS默认值，基本可用）
-      # 注意：多线程可能导致登录状态同步问题，但可以提高抓取效率
-      # 如果出现大量验证错误，可降回 THREADS=1
-      - THREADS=2
+      - INSTALL=True
+      # 线程数配置：单线程避免 Playwright greenlet 线程切换错误
+      # 注意：多线程会导致 Playwright 出现 "Cannot switch to a different thread" 错误
+      # Playwright 不支持在多线程间切换 greenlet，必须使用单线程
+      - THREADS=1
+      # 注意：代码中已经通过 try-except 处理了 greenlet 错误，无需通过 PYTHONWARNINGS 抑制
+      - PYTHONUNBUFFERED=1
       # we-mp-rss 的 SPAN_INTERVAL 实际对应 config.yaml 的 interval：每篇稿件/请求间隔（秒），允许 1-60
       # 多线程时适当增加间隔以降低风控风险
       - SPAN_INTERVAL=10  # 每篇稿件间隔 10 秒（多线程时降低风控与超时概率）

@@ -1,4 +1,4 @@
-# Z-Pulse 财政信息AI晨报系统 V2.1
+# Z-Pulse 浙财脉动-AI晨报系统 V2.1
 
 [![Version](https://img.shields.io/badge/version-2.1.0-indigo.svg)](https://github.com/wang1st/z-pulse)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -10,7 +10,7 @@
 
 ## 📖 项目简介
 
-Z-Pulse 是一个智能化的财政信息采集与分析系统，能够自动从微信公众号采集财政相关文章，使用AI技术生成结构化的晨报和周报，并通过邮件推送给订阅用户。
+Z-Pulse 是一个智能化的财政信息采集与分析系统，能够自动从浙江省内地市级和县级政府官方微信公众号采集财政相关文章，使用AI技术生成结构化的晨报和周报，并通过邮件推送给订阅用户。
 
 ### 核心价值
 

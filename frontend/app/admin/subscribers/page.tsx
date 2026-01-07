@@ -28,15 +28,22 @@ export default function SubscribersPage() {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
   const { confirm } = useConfirm()
+  const [page, setPage] = useState<number>(0)
+  const [limit, setLimit] = useState<number>(20)
+  const [hasNext, setHasNext] = useState<boolean>(false)
 
   useEffect(() => {
+    setPage(0)
     fetchSubscribers()
-  }, [])
+  }, [limit])
 
   const fetchSubscribers = async () => {
     try {
-      const response = await api.get('/admin/subscribers')
-      setSubscribers(response.data)
+      const params: any = { skip: page * limit, limit }
+      const response = await api.get('/admin/subscribers', { params })
+      const list: Subscriber[] = response.data || []
+      setSubscribers(list)
+      setHasNext(list.length === limit)
     } catch (error) {
       console.error('Failed to fetch subscribers:', error)
     } finally {
@@ -169,6 +176,49 @@ export default function SubscribersPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-purple-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">每页</span>
+                  <select
+                    className="border rounded px-2 py-1 text-sm"
+                    value={limit}
+                    onChange={(e) => setLimit(Number(e.target.value))}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-700 hover:bg-purple-100"
+                    disabled={page === 0}
+                    onClick={() => {
+                      if (page > 0) {
+                        setPage(page - 1)
+                        fetchSubscribers()
+                      }
+                    }}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-sm text-gray-600">第 {page + 1} 页</span>
+                  <Button
+                    variant="ghost"
+                    className="text-gray-700 hover:bg紫-100"
+                    disabled={!hasNext}
+                    onClick={() => {
+                      if (hasNext) {
+                        setPage(page + 1)
+                        fetchSubscribers()
+                      }
+                    }}
+                  >
+                    下一页
+                  </Button>
+                </div>
               </div>
             </div>
           )}

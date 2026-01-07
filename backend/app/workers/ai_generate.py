@@ -650,25 +650,48 @@ class AIWorker:
             disclaimer = "\n\n---\n\n**免责声明**：本报告由大模型自动生成，内容基于公开信息进行总结和分析，仅作为不同视角的参考，不构成任何投资建议或决策依据。"
             markdown_content_with_disclaimer = markdown_content + disclaimer
 
-            # 保存周报（使用Markdown格式）
-            report = Report(
-                report_type=ReportType.WEEKLY,
-                report_date=end_date,  # 周一日期
-                title=f"财政周报述评 - {start_date.strftime('%Y年%m月%d日')} 至 {end_date.strftime('%m月%d日')}",
-                summary_markdown=markdown_content_with_disclaimer,  # 存储Markdown综述（包含免责声明）
-                analysis_markdown=None,
-                article_count=sum(r.article_count for r in daily_reports),
-                source_article_ids=[],
-                content_json=None  # 不再使用JSON格式
-            )
+            # 如果已存在该日期周报：原地更新，避免唯一约束错误
+            existing_weekly = db.query(Report).filter(
+                Report.report_type == ReportType.WEEKLY,
+                Report.report_date == end_date
+            ).first()
 
-            db.add(report)
-            db.commit()
-
-            logger.info(f"Weekly report created: ID={report.id}")
+            if existing_weekly:
+                existing_weekly.title = f"财政周报述评 - {start_date.strftime('%Y年%m月%d日')} 至 {end_date.strftime('%m月%d日')}"
+                existing_weekly.summary_markdown = markdown_content_with_disclaimer
+                existing_weekly.analysis_markdown = None
+                existing_weekly.article_count = sum(r.article_count for r in daily_reports)
+                existing_weekly.source_article_ids = []
+                existing_weekly.content_json = None
+                db.commit()
+                report = existing_weekly
+                logger.info(f"Weekly report updated in place: ID={report.id} for {end_date}")
+            else:
+                # 保存周报（使用Markdown格式）
+                report = Report(
+                    report_type=ReportType.WEEKLY,
+                    report_date=end_date,  # 周一日期/当前日期
+                    title=f"财政周报述评 - {start_date.strftime('%Y年%m月%d日')} 至 {end_date.strftime('%m月%d日')}",
+                    summary_markdown=markdown_content_with_disclaimer,  # 存储Markdown综述（包含免责声明）
+                    analysis_markdown=None,
+                    article_count=sum(r.article_count for r in daily_reports),
+                    source_article_ids=[],
+                    content_json=None  # 不再使用JSON格式
+                )
+                db.add(report)
+                db.commit()
+                logger.info(f"Weekly report created: ID={report.id}")
 
             # 自动发送周报给订阅用户
-            asyncio.run(self._distribute_weekly_report(db, report, date_range))
+            loop = None
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop:
+                loop.create_task(self._distribute_weekly_report(db, report, date_range))
+            else:
+                asyncio.run(self._distribute_weekly_report(db, report, date_range))
 
         except Exception as e:
             logger.error(f"Failed to generate weekly report: {str(e)}")
@@ -2091,4 +2114,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

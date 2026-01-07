@@ -64,7 +64,6 @@ export default function AdminDashboard() {
     {
       title: '文章总数',
       value: stats.total_articles,
-      pending: stats.pending_articles,
       href: '/admin/articles',
       color: 'bg-green-500',
       icon: Icons.fileText,
@@ -98,39 +97,33 @@ export default function AdminDashboard() {
             <Link
               key={index}
               href={card.href}
-              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow"
+              className="bg-white overflow-hidden shadow rounded-xl hover:shadow-lg transition-shadow"
             >
               <div className="p-5">
-                <div className="flex items-center">
-                  <div className={`${card.color} rounded-md p-3 flex items-center justify-center`}>
+                <div className="flex items-start gap-4">
+                  <div className={`${card.color} rounded-md p-3 flex items-center justify-center shrink-0`}>
                     <Icon name={card.icon} size={24} className="text-white" />
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        {card.title}
-                      </dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">
-                          {card.value}
-                        </div>
-                        {card.active !== undefined && (
-                          <div className="ml-2 text-sm text-gray-500">
-                            (活跃: {card.active})
-                          </div>
-                        )}
-                        {card.pending !== undefined && (
-                          <div className="ml-2 text-sm text-yellow-600">
-                            (待处理: {card.pending})
-                          </div>
-                        )}
-                        {card.daily !== undefined && (
-                          <div className="ml-2 text-sm text-gray-500">
-                            (晨报: {card.daily}, 周报: {card.weekly})
-                          </div>
-                        )}
-                      </dd>
-                    </dl>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-600">{card.title}</div>
+                    <div className="mt-1 text-3xl font-bold text-gray-900 tracking-tight">{card.value}</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {card.active !== undefined ? (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                          活跃 {card.active}
+                        </span>
+                      ) : null}
+                      {card.daily !== undefined ? (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                          晨报 {card.daily}
+                        </span>
+                      ) : null}
+                      {card.weekly !== undefined ? (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                          周报 {card.weekly}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>

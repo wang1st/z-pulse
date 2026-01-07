@@ -35,7 +35,7 @@ export default function AboutPage() {
                 生成逻辑
               </div>
               <div className="mt-2 text-sm text-white/70 leading-relaxed">
-                规则化 NLP 负责清洗与候选提取，大模型负责摘要、聚合与成文，并配合去重与护栏约束。
+                规则化处理负责清洗与候选提取，大模型负责摘要、聚合与成文，并配合去重与护栏约束。
               </div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-5">

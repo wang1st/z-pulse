@@ -1449,6 +1449,8 @@ async def trigger_daily_report(
 
 @router.post("/reports/generate/weekly", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_weekly_report(
+    background_tasks: BackgroundTasks,
+    end_date: Optional[str] = Query(default=None, description="指定周报结束日期（YYYY-MM-DD），按该日往前7天生成"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -1460,14 +1462,30 @@ async def trigger_weekly_report(
     from app.workers.ai_generate import AIWorker
     
     try:
-        worker = AIWorker()
-        worker.generate_weekly_report()
-        
+        # Parse end_date if provided
+        target_dt: date | None = None
+        if end_date:
+            try:
+                target_dt = date.fromisoformat(end_date)
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="end_date 格式错误，需为 YYYY-MM-DD"
+                )
+
+        def _run_weekly() -> None:
+            try:
+                worker = AIWorker()
+                worker.generate_weekly_report(target_date=target_dt)
+            except Exception as e:
+                logger.error(f"Background weekly generation failed: {e}")
+
+        background_tasks.add_task(_run_weekly)
         logger.info(f"Weekly report generation triggered by {current_user.username}")
-        
         return {
-            "status": "success",
-            "message": "周报生成任务已启动，请查看日志了解进度"
+            "status": "accepted",
+            "message": "已在后台开始生成（不会阻塞页面）。请稍后刷新或查看系统日志。",
+            "target_date": str(target_dt) if target_dt else None,
         }
     except Exception as e:
         logger.error(f"Failed to trigger weekly report: {str(e)}")
@@ -1475,4 +1493,3 @@ async def trigger_weekly_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"触发周报生成失败: {str(e)}"
         )
-

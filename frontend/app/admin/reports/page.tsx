@@ -49,12 +49,16 @@ export default function ReportsPage() {
   const [jobsLoading, setJobsLoading] = useState(false)
   const [jobStatusFilter, setJobStatusFilter] = useState<string>('all')
   const [jobTypeFilter, setJobTypeFilter] = useState<string>('all')
+  const [page, setPage] = useState<number>(0)
+  const [limit, setLimit] = useState<number>(20)
+  const [hasNext, setHasNext] = useState<boolean>(false)
   const { toast } = useToast()
   const { confirm } = useConfirm()
 
   useEffect(() => {
+    setPage(0)
     fetchReports()
-  }, [filter])
+  }, [filter, limit])
 
   const formatBeijing = (value: string | null) => {
     if (!value) return ''
@@ -75,9 +79,14 @@ export default function ReportsPage() {
 
   const fetchReports = async () => {
     try {
-      const params = filter && filter !== 'all' ? { report_type: filter } : {}
+      const params: any = {}
+      if (filter && filter !== 'all') params.report_type = filter
+      params.skip = page * limit
+      params.limit = limit
       const response = await api.get('/admin/reports', { params })
-      setReports(response.data)
+      const list: Report[] = response.data || []
+      setReports(list)
+      setHasNext(list.length === limit)
     } catch (error) {
       console.error('Failed to fetch reports:', error)
       const anyErr: any = error
@@ -240,19 +249,28 @@ export default function ReportsPage() {
       return
     }
 
+    // 根据当前过滤类型决定生成日报还是周报
+    const isWeekly = filter === 'weekly'
+
     const ok = await confirm({
-      title: '生成指定日期晨报',
-      description: `确定要生成 ${targetDate} 的晨报吗？`,
+      title: isWeekly ? '生成指定日期周报' : '生成指定日期晨报',
+      description: isWeekly
+        ? `确定要生成 ${targetDate} 所在周的周报吗？（周报的日期为该周一）`
+        : `确定要生成 ${targetDate} 的晨报吗？`,
       confirmText: '开始生成',
       cancelText: '取消',
     })
     if (!ok) return
 
     try {
-      const res = await api.post(`/admin/reports/daily/${targetDate}/regenerate`)
+      const res = isWeekly
+        ? await api.post('/admin/reports/generate/weekly')
+        : await api.post(`/admin/reports/daily/${targetDate}/regenerate`)
       toast({
         title: '已提交后台任务',
-        description: res.data?.message || `已提交 ${targetDate} 晨报生成任务`,
+        description:
+          res.data?.message ||
+          (isWeekly ? '已提交本周周报生成任务' : `已提交 ${targetDate} 晨报生成任务`),
         variant: 'success',
       })
       fetchJobs()
@@ -301,7 +319,7 @@ export default function ReportsPage() {
                 className="h-9 bg-white text-orange-700 hover:bg-orange-50"
               >
                 <Icon name={Icons.refresh} size={16} className="mr-2" />
-                生成晨报
+                {filter === 'weekly' ? '生成周报' : '生成晨报'}
               </Button>
             </div>
             <Select value={filter} onValueChange={setFilter}>
@@ -342,7 +360,6 @@ export default function ReportsPage() {
                 <table className="w-full">
                   <thead className="bg-gradient-to-r from-orange-50 to-red-50">
                     <tr className="border-orange-200">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">类型</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">标题</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 hidden md:table-cell">日期</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 hidden lg:table-cell">统计</th>
@@ -352,11 +369,6 @@ export default function ReportsPage() {
                   <tbody className="divide-y divide-orange-100">
                     {reports.map((report) => (
                       <tr key={report.id} className="hover:bg-orange-50/50 transition-colors">
-                        <td className="px-4 py-4">
-                          <Badge variant={(report.report_type === 'daily' || report.report_type === 'DAILY') ? 'default' : 'secondary'} className={(report.report_type === 'daily' || report.report_type === 'DAILY') ? 'bg-blue-500 hover:bg-blue-600' : 'bg-purple-500 hover:bg-purple-600'}>
-                            {(report.report_type === 'daily' || report.report_type === 'DAILY') ? '晨报' : '周报'}
-                          </Badge>
-                        </td>
                         <td className="px-4 py-4">
                           <div className="font-semibold text-gray-900">{report.title}</div>
                         </td>
@@ -409,6 +421,50 @@ export default function ReportsPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-orange-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">每页</span>
+                  <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue placeholder="20" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-700 hover:bg-orange-100"
+                    disabled={page === 0}
+                    onClick={() => {
+                      if (page > 0) {
+                        setPage(page - 1)
+                        fetchReports()
+                      }
+                    }}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-sm text-gray-600">第 {page + 1} 页</span>
+                  <Button
+                    variant="ghost"
+                    className="text-gray-700 hover:bg-orange-100"
+                    disabled={!hasNext}
+                    onClick={() => {
+                      if (hasNext) {
+                        setPage(page + 1)
+                        fetchReports()
+                      }
+                    }}
+                  >
+                    下一页
+                  </Button>
+                </div>
               </div>
             </div>
           )}

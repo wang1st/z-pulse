@@ -58,7 +58,7 @@ export function WeeklyReview(props: {
         </div>
       </div>
 
-      {/* 一周述评 Section - same style as 今日焦点 */}
+      {/* 一周述评 Section */}
       <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-6 border-l-4 border-amber-600">
         {/* 标题栏 */}
         <div className="bg-gradient-to-r from-slate-50 to-amber-50/30 px-6 pt-6 pb-4">
@@ -77,53 +77,64 @@ export function WeeklyReview(props: {
         
         {/* 内容区 */}
         <div className="p-8 md:p-10 pl-10 md:pl-12 bg-slate-50/20">
-          {/* Markdown Content */}
-          <div className="prose prose-slate max-w-none">
-            <ReactMarkdown
-              components={{
-                h1: ({node, ...props}) => (
-                  <h1 className="text-3xl font-bold text-slate-900 mb-6 mt-0 first:mt-0" {...props} />
-                ),
-                h2: ({node, ...props}) => (
-                  <h2 className="text-2xl font-semibold text-slate-800 mb-4 mt-6" {...props} />
-                ),
-                h3: ({node, ...props}) => (
-                  <h3 className="text-xl font-semibold text-slate-700 mb-3 mt-4" {...props} />
-                ),
-                p: ({node, ...props}) => (
-                  <p className="text-base leading-relaxed text-slate-700 mb-4 indent-8" {...props} />
-                ),
-                ul: ({node, ...props}) => (
-                  <ul className="list-disc list-inside mb-4 space-y-2 text-slate-700" {...props} />
-                ),
-                ol: ({node, ...props}) => (
-                  <ol className="list-decimal list-inside mb-4 space-y-2 text-slate-700" {...props} />
-                ),
-                li: ({node, ...props}) => (
-                  <li className="text-base leading-relaxed" {...props} />
-                ),
-                strong: ({node, ...props}) => (
-                  <strong className="font-semibold text-slate-900" {...props} />
-                ),
-                code: ({node, ...props}) => (
-                  <code className="bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono text-slate-800" {...props} />
-                ),
-              }}
-            >
-              {summaryMarkdown}
-            </ReactMarkdown>
-          </div>
-
-          {/* Footer Stats */}
-          <div className="mt-8 pt-6 border-t border-slate-200">
-            <div className="flex items-center justify-between text-sm text-slate-500">
-              <span>本周文章数：{articleCount}</span>
-              <span>生成时间：{formatBeijingYmd(createdAt)}</span>
-            </div>
-          </div>
+          {(() => {
+            const parts = summaryMarkdown.split('\\n\\n---\\n\\n')
+            const main = parts[0] || ''
+            const disclaimer = parts[1] || ''
+            return (
+              <>
+                <div className="prose prose-slate max-w-none prose-p:text-xl prose-p:!text-xl">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({node, ...props}) => (
+                        <h1 className="text-3xl font-bold text-slate-900 mb-6 mt-0 first:mt-0" {...props} />
+                      ),
+                      h2: ({node, ...props}) => (
+                        <h2 className="text-2xl font-semibold text-slate-800 mb-4 mt-6" {...props} />
+                      ),
+                      h3: ({node, ...props}) => (
+                        <h3 className="text-xl font-semibold text-slate-700 mb-3 mt-4" {...props} />
+                      ),
+                      p: ({node, ...props}) => (
+                        <p 
+                          className="leading-relaxed text-slate-700 mb-4 indent-8"
+                          style={{
+                            fontSize: '1.25rem',
+                            lineHeight: '1.75'
+                          }}
+                          {...props} 
+                        />
+                      ),
+                      ul: ({node, ...props}) => (
+                        <ul className="list-disc list-inside mb-4 space-y-2 text-slate-700" {...props} />
+                      ),
+                      ol: ({node, ...props}) => (
+                        <ol className="list-decimal list-inside mb-4 space-y-2 text-slate-700" {...props} />
+                      ),
+                      li: ({node, ...props}) => (
+                        <li className="text-xl leading-relaxed" style={{ fontSize: '1.25rem' }} {...props} />
+                      ),
+                      strong: ({node, ...props}) => (
+                        <strong className="font-semibold text-slate-900" {...props} />
+                      ),
+                      code: ({node, ...props}) => (
+                        <code className="bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono text-slate-800" {...props} />
+                      ),
+                    }}
+                  >
+                    {main}
+                  </ReactMarkdown>
+                </div>
+                {disclaimer ? (
+                  <div className="prose prose-slate prose-sm max-w-none text-slate-500 mt-6">
+                    <ReactMarkdown>{disclaimer}</ReactMarkdown>
+                  </div>
+                ) : null}
+              </>
+            )
+          })()}
         </div>
       </div>
     </div>
   )
 }
-

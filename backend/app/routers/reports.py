@@ -35,17 +35,36 @@ async def get_reports(
     report_type: Optional[str] = Query(None, description="报告类型: daily/weekly"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
     db: Session = Depends(get_db)
 ):
     """
     获取报告列表
     
-    支持分页和类型筛选
+    支持分页、类型筛选和日期范围查询
     """
+    from datetime import date
+    
     query = db.query(Report)
     
     if report_type:
         query = query.filter(Report.report_type == ReportType(report_type))
+    
+    # 日期范围筛选
+    if start_date:
+        try:
+            start = date.fromisoformat(start_date)
+            query = query.filter(Report.report_date >= start)
+        except ValueError:
+            pass
+    
+    if end_date:
+        try:
+            end = date.fromisoformat(end_date)
+            query = query.filter(Report.report_date <= end)
+        except ValueError:
+            pass
     
     reports = query.order_by(
         Report.report_date.desc()

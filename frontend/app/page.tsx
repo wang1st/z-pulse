@@ -1,106 +1,97 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { LatestReports } from './components/LatestReports'
+import { DailyReportDisplay } from './components/DailyReportDisplay'
+import { ReportCalendar } from './components/ReportCalendar'
+import { WeeklyReportDisplay } from './components/WeeklyReportDisplay'
+import { SmartBrevityDaily } from './components/SmartBrevityDaily'
+import { WeeklyReview } from './components/WeeklyReview'
 import { SubscribeForm } from './components/SubscribeForm'
 import Icon, { Icons } from '@/components/Icon'
 
 export default function Home() {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedReport, setSelectedReport] = useState<any | null>(null)
+
+  const handleDateClick = (date: string, report: any) => {
+    setSelectedDate(date)
+    setSelectedReport(report || null)
+  }
+
   return (
     <main className="min-h-screen bg-white">
-      {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white">
-        <div className="container mx-auto px-4 py-14 md:py-20">
-          <div className="mx-auto max-w-4xl">
-            <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
-              <span className="inline-flex items-center gap-2">
-                <Icon name={Icons.shield} size={14} className="text-slate-500" />
-                参赛作品｜"智研未来"AI智能体创新大赛
-              </span>
-              <span className="text-slate-300">·</span>
-              <span className="inline-flex items-center gap-2">
-                <Icon name={Icons.reports} size={14} className="text-slate-500" />
-                大模型聚合的财政情报
-              </span>
+      {/* 简洁的头部 */}
+      <div className="border-b border-slate-200 bg-white">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">浙财脉动</h1>
+              <span className="text-xs text-slate-500">大模型聚合的财政情报</span>
             </div>
-
-            <h1 className="mt-6 text-[42px] md:text-[64px] leading-[1.05] font-black tracking-tight text-slate-900">
-              浙财脉动
-            </h1>
-            <p className="mt-4 text-base md:text-lg text-slate-600 leading-relaxed">
-              每天 1 分钟，把浙江各地官微发布的财政相关动态浓缩成一份可追溯、可点击引用的"今日焦点"。
-              我们用大模型技术，做到"短而密、事实为主、来源可查"。
-            </p>
-
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link
-                href="/reports/daily"
-                className="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-slate-800 transition-colors"
-              >
-                查看最新晨报
-                <Icon name={Icons.arrowLeft} size={16} className="rotate-180" />
-              </Link>
-              <Link
-                href="/reports/weekly"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-50 transition-colors"
-              >
-                查看周报
-                <Icon name={Icons.reports} size={16} className="text-slate-600" />
-              </Link>
-            </div>
+            <div />
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-4 py-12 md:py-16">
-        {/* Feature strip */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-indigo-600 text-white">
-              <Icon name={Icons.search} size={18} className="text-white" />
-            </div>
-            <div className="mt-4 text-lg font-semibold text-slate-900">筛选更克制</div>
-            <div className="mt-2 text-sm text-slate-600 leading-relaxed">
-              先筛财政相关，再做逐篇摘要与关键词聚合，避免"全都算相关"的信息噪声。
-            </div>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-emerald-600 text-white">
-              <Icon name={Icons.fileText} size={18} className="text-white" />
-            </div>
-            <div className="mt-4 text-lg font-semibold text-slate-900">焦点更突出</div>
-            <div className="mt-2 text-sm text-slate-600 leading-relaxed">
-              每天只写一个主事件/共性问题，用"事实句 + 引用"呈现，阅读路径更短。
-            </div>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-sky-600 text-white">
-              <Icon name={Icons.link} size={18} className="text-white" />
-            </div>
-            <div className="mt-4 text-lg font-semibold text-slate-900">来源可点击</div>
-            <div className="mt-2 text-sm text-slate-600 leading-relaxed">
-              关键词/焦点引用直接跳转到公众号原文，方便复核与深读。
-            </div>
-          </div>
+      {/* 主要内容区域 */}
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* 顶部：晨报显示（优先今天，没有则昨天） */}
+        <div className="mb-12">
+          <DailyReportDisplay targetDate={selectedDate ?? undefined} />
         </div>
 
-        {/* Latest Reports */}
-        <div className="mt-10 md:mt-14">
-          <div className="flex items-end justify-between gap-4">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">最新报告</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-600">
-              <Link href="/reports/daily" className="hover:text-slate-900 transition-colors">更多晨报</Link>
-              <span className="text-slate-300">/</span>
-              <Link href="/reports/weekly" className="hover:text-slate-900 transition-colors">更多周报</Link>
-            </div>
-          </div>
-          <div className="mt-5">
-            <LatestReports />
-          </div>
+        {/* 中间：报告日历 */}
+        <div className="mb-12">
+          <ReportCalendar onDateClick={handleDateClick} selectedDate={selectedDate} />
         </div>
 
-        {/* Subscribe */}
-        <div className="mt-12 md:mt-16">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-7 md:p-10">
+        {/* 日历下方：选中日期的报告或本周周报 */}
+        <div className="mb-12">
+          
+          {selectedReport ? (
+            (() => {
+              const isWeekly =
+                selectedReport.report_type === 'weekly' ||
+                selectedReport.report_type === 'WEEKLY'
+              const summary = selectedReport.summary_markdown || ''
+              const trimmed = summary.trim()
+              const looksLikeHtml = trimmed.startsWith('<')
+
+              if (isWeekly && summary) {
+                if (!looksLikeHtml) {
+                  return (
+                    <WeeklyReview
+                      reportDate={selectedReport.report_date}
+                      createdAt={selectedReport.created_at}
+                      articleCount={selectedReport.article_count || 0}
+                      summaryMarkdown={summary}
+                    />
+                  )
+                }
+                return (
+                  <div className="prose max-w-none bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: summary,
+                      }}
+                    />
+                  </div>
+                )
+              }
+
+              return null
+            })()
+          ) : selectedDate ? null : (
+            <WeeklyReportDisplay />
+          )}
+        </div>
+      </div>
+
+      {/* 订阅区域 */}
+      <div className="border-t border-slate-200 bg-slate-50">
+        <div className="container mx-auto px-4 py-12 max-w-4xl">
+          <div className="rounded-3xl border border-slate-200 bg-white p-7 md:p-10">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div className="max-w-xl">
                 <div className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">订阅每日晨报</div>
@@ -136,4 +127,3 @@ export default function Home() {
     </main>
   )
 }
-

@@ -58,15 +58,24 @@ export default function AccountsPage() {
   const [filterActive, setFilterActive] = useState<string>('all')
   const { toast } = useToast()
   const { confirm } = useConfirm()
+  const [page, setPage] = useState<number>(0)
+  const [limit, setLimit] = useState<number>(20)
+  const [hasNext, setHasNext] = useState<boolean>(false)
 
   useEffect(() => {
+    setPage(0)
     fetchAccounts()
-  }, [])
+  }, [limit, filterActive])
 
   const fetchAccounts = async () => {
     try {
-      const response = await api.get('/admin/accounts')
-      setAccounts(response.data)
+      const params: any = { skip: page * limit, limit }
+      if (filterActive === 'active') params.is_active = true
+      if (filterActive === 'inactive') params.is_active = false
+      const response = await api.get('/admin/accounts', { params })
+      const list: OfficialAccount[] = response.data || []
+      setAccounts(list)
+      setHasNext(list.length === limit)
     } catch (error) {
       console.error('Failed to fetch accounts:', error)
     } finally {
@@ -340,9 +349,9 @@ export default function AccountsPage() {
                         style={{ animationDelay: `${index * 50}ms` }}
                       >
                         <TableCell>
-                          <Badge variant={account.is_active ? 'success' : 'secondary'} className="shadow-sm">
-                            {account.is_active ? '启用' : '停用'}
-                          </Badge>
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${account.is_active ? 'bg-gray-100 text-gray-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {account.is_active ? '已启用' : '已停用'}
+                          </span>
                         </TableCell>
                         <TableCell className="font-medium">
                           <div className="font-semibold text-gray-900">{account.name}</div>
@@ -400,6 +409,50 @@ export default function AccountsPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-indigo-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">每页</span>
+                  <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue placeholder="20" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-700 hover:bg-indigo-100"
+                    disabled={page === 0}
+                    onClick={() => {
+                      if (page > 0) {
+                        setPage(page - 1)
+                        fetchAccounts()
+                      }
+                    }}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-sm text-gray-600">第 {page + 1} 页</span>
+                  <Button
+                    variant="ghost"
+                    className="text-gray-700 hover:bg-indigo-100"
+                    disabled={!hasNext}
+                    onClick={() => {
+                      if (hasNext) {
+                        setPage(page + 1)
+                        fetchAccounts()
+                      }
+                    }}
+                  >
+                    下一页
+                  </Button>
+                </div>
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
-# Z-Pulse 财政信息AI晨报系统 V2.0
+# Z-Pulse 财政信息AI晨报系统 V2.1
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/your-org/z-pulse)
+[![Version](https://img.shields.io/badge/version-2.1.0-indigo.svg)](https://github.com/wang1st/z-pulse)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](docker-compose.yml)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
@@ -16,7 +16,7 @@ Z-Pulse 是一个智能化的财政信息采集与分析系统，能够自动从
 
 - 🤖 **智能分析**: 混合AI架构（BERTopic主题聚类 + 阿里云Qwen深度解读）
 - 📊 **自动化流程**: 全自动采集、分析、生成、推送
-- 🎨 **现代化界面**: Next.js 14 SSR/ISR，SEO友好
+- 🎨 **现代化界面**: 统一的靛蓝/紫色主题（Indigo/Purple），Next.js 14 SSR/ISR
 - 📧 **标准订阅**: Double Opt-In邮件订阅流程
 - 🐳 **一键部署**: Docker Compose编排，8服务协同
 - 🔒 **生产就绪**: 健康检查、网络隔离、安全规范
@@ -68,8 +68,8 @@ Z-Pulse 是一个智能化的财政信息采集与分析系统，能够自动从
 | 2 | **api-backend** | zpulse-api | FastAPI | 8000 | REST API，业务逻辑核心 |
 | 3 | **frontend-web** | zpulse-web | Next.js 14 | 3000 | 用户界面，SSR/ISR优化 |
 | 4 | **rss-bridge** | zpulse-rss | we-mp-rss | 8080/3001 | 微信公众号采集器 |
-| 5 | **ingestion-worker** | zpulse-ingest-worker | Python | - | RSS采集工作节点 |
-| 6 | **ai-worker** | zpulse-ai-worker | Python+Qwen+BERTopic | - | AI报告生成工作节点 |
+| 5 | **ingestion-worker** | zpulse-ingest-worker | Python | - | RSS采集工作节点（后台自动运行） |
+| 6 | **ai-worker** | zpulse-ai-worker | Python+Qwen+BERTopic | - | AI报告生成工作节点（支持异步任务） |
 | 7 | **redis** | zpulse-redis | Redis 7 | 6379 | 缓存和会话存储 |
 | 8 | **reverse-proxy** | zpulse-proxy | Nginx | 80/443 | 反向代理，路由分发 |
 
@@ -94,8 +94,11 @@ Z-Pulse 是一个智能化的财政信息采集与分析系统，能够自动从
 ### 5分钟快速启动
 
 ```bash
-# 1. 克隆项目
+# 1. 克隆项目 (GitHub 或 Gitee)
+git clone git@github.com:wang1st/z-pulse.git
+# 或者
 git clone https://gitee.com/wang1st/z-pulse.git
+
 cd z-pulse
 
 # 2. 配置环境变量
@@ -142,12 +145,14 @@ curl http://localhost/api/health
 - **TypeScript**: 类型安全
 - **Tailwind CSS**: 现代化样式系统
 - **Radix UI**: 无障碍组件库
+- **UI风格**: 统一的靛蓝/紫色（Indigo/Purple）渐变主题
 
 ### 后端层
 - **FastAPI**: 高性能异步API框架
 - **SQLAlchemy 2.0**: 现代ORM
 - **Pydantic**: 数据验证和序列化
 - **Uvicorn**: ASGI服务器
+- **Asyncio**: 全异步任务处理
 
 ### AI/ML层
 - **阿里云Qwen**: 大语言模型（兼容OpenAI接口）
@@ -180,12 +185,12 @@ curl http://localhost/api/health
 **数据流**: `微信公众号 → we-mp-rss → RSS Feed → Ingestion Worker → PostgreSQL`
 
 **特性**:
-- ✅ 每30分钟自动采集（可配置）
-- ✅ 基于URL去重，避免重复存储
-- ✅ 自动抓取文章全文（替代点查看再回源）
-- ✅ 支持直接读取we-mp-rss SQLite数据库（避免HTTP超时）
-- ✅ 采集状态追踪和错误处理
-- ✅ 支持采集时间窗口限制（MIN_ARTICLE_DATE）
+- ✅ **全自动后台运行**: `ingestion-worker` 默认每30分钟自动采集，无需人工干预
+- ✅ **智能去重**: 基于URL去重，避免重复存储
+- ✅ **全文抓取**: 自动抓取文章全文（替代点查看再回源）
+- ✅ **SQLite直读**: 支持直接读取we-mp-rss SQLite数据库，避免HTTP超时
+- ✅ **采集状态追踪**: 详细的错误处理和日志记录
+- ✅ **时间窗口限制**: 支持 `MIN_ARTICLE_DATE` 配置
 
 **配置**:
 ```env
@@ -201,22 +206,9 @@ MIN_ARTICLE_DATE=2025-12-15     # 最早采集日期
 #### 晨报生成（每天09:45）
 
 **流程**:
-1. 筛选指定日期发布的财政相关文章（使用AI判断财政相关性）
-2. 生成每篇文章的一句话摘要
-3. 选择写作风格和焦点类型（`common_issue` 普遍性问题 或 `high_impact_event` 高影响力事件）
-4. 生成结构化晨报（Smart Brevity格式）:
-   - **今日焦点**（3句段落）:
-     - 第1句（lede）：核心事实，不超过50字
-     - 第2句（why_it_matters）：财政视角的影响/抓手
-     - 第3句（big_picture）：关注点/风险点/落地要害
-   - **近日热点**：近3天的事件聚类，展示覆盖文档数、账号数、热度等
-   - **今日关键词**：从热点中提取的关键词
-   - **引用来源**：所有引用的文章列表
-5. 自动发送给订阅用户
-
-**格式**:
-- `smart_brevity`: Smart Brevity财政信息聚合格式（当前使用）
-- `voice`: 旧版"口播稿分段"结构（兼容回滚，已废弃）
+1. 筛选指定日期发布的财政相关文章（AI判断）
+2. 生成一句话摘要、今日焦点、近日热点、关键词
+3. 自动发送邮件
 
 #### 周报生成（每周日22:00）
 
@@ -225,19 +217,14 @@ MIN_ARTICLE_DATE=2025-12-15     # 最早采集日期
 文章集合 → BERTopic主题聚类 → 识别核心主题 → Qwen深度分析 → 结构化报告
 ```
 
-**报告结构**:
-- 本周概览
-- 核心主题深度分析（基于BERTopic聚类）
-- 展望与预判
-
 **特性**:
-- ✅ 无监督主题发现
-- ✅ 主题重要性排序
-- ✅ 深度分析和洞察
+- ✅ **后台异步任务**: 生成过程不阻塞API，支持长时间运行
+- ✅ **自定义周期**: 支持指定结束日期生成周报（`end_date`）
+- ✅ **深度洞察**: 无监督主题发现 + LLM深度分析
 
 ### 3. Double Opt-In订阅系统
 
-**订阅流程**:
+**流程**:
 ```
 1. 用户提交邮箱 → is_active=False
 2. 生成安全令牌 → secrets.token_urlsafe(32)
@@ -246,37 +233,28 @@ MIN_ARTICLE_DATE=2025-12-15     # 最早采集日期
 5. 开始接收报告邮件
 ```
 
-**安全特性**:
-- ✅ 密码学安全的令牌生成
-- ✅ 异步邮件发送（不阻塞API）
-- ✅ 邮件验证链接有效期管理
-- ✅ 防止重复订阅
-
 ### 4. 现代化Web界面
 
 **特性**:
 - 📱 响应式设计（移动端适配）
 - ⚡ 极速加载（ISR增量静态生成）
 - 🔍 SEO优化（SSR服务端渲染）
-- 🎨 现代UI设计（Tailwind CSS + Radix UI）
-- 🌓 主题切换支持
+- 🎨 **统一UI风格**: 全站采用 Indigo/Purple 渐变主题，视觉体验一致
+- 📄 **分页支持**: 所有列表页面（文章、公众号、订阅者、报告）均支持分页
 
 **页面**:
-- `/`: 首页（报告列表）
+- `/`: 首页（最新报告概览）
 - `/reports/[id]`: 报告详情
-- `/preview/[id]`: 报告预览
-- `/subscribe`: 订阅页面
-- `/subscription-confirmed`: 订阅确认
-- `/admin/*`: 管理后台
+- `/admin/*`: 管理后台（统一风格）
 
 ### 5. 管理后台
 
 **功能**:
-- 📊 数据统计和监控
-- 📝 报告管理（查看、重新生成）
-- 📰 文章管理（查看、手动采集）
-- 👥 订阅用户管理
-- ⚙️ 系统配置
+- 📊 **仪表盘**: 实时数据统计和监控
+- 📰 **文章管理**: 查看文章列表、筛选状态（采集全自动，无需手动操作）
+- 👥 **订阅管理**: 订阅用户列表、分页查询
+- 📝 **报告管理**: 查看历史报告、重新生成（支持按日期重跑）
+- ⚙️ **公众号管理**: 管理采集源，支持批量导入/导出
 
 ## 📊 数据模型
 
@@ -323,18 +301,6 @@ subscribers
 └── subscribed_at (订阅时间)
 ```
 
-### 关键索引
-
-```sql
--- 文章查询优化
-CREATE INDEX idx_articles_publish_timestamp ON scraped_articles(published_at);
-CREATE INDEX idx_articles_processed_by_ai ON scraped_articles(status);
-CREATE INDEX idx_articles_account_published ON scraped_articles(account_id, published_at);
-
--- 报告查询优化
-CREATE UNIQUE INDEX idx_reports_type_date ON ai_generated_reports(report_type, report_date);
-```
-
 ## ⏰ 定时任务
 
 | 任务 | 时间 | 服务 | 说明 |
@@ -347,52 +313,7 @@ CREATE UNIQUE INDEX idx_reports_type_date ON ai_generated_reports(report_type, r
 
 ## 🔑 环境变量配置
 
-### 必需配置
-
-```env
-# 数据库
-POSTGRES_USER=zpulse
-POSTGRES_PASSWORD=your_strong_password
-POSTGRES_DB=zpulse
-REDIS_PASSWORD=your_redis_password
-
-# AI服务
-DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxx  # 阿里云Qwen API密钥
-
-# 邮件服务（至少配置一个）
-EMAIL_PROVIDER=brevo  # 或 sendgrid
-BREVO_API_KEY=xkeysib-xxxxx  # Brevo API密钥
-SENDGRID_API_KEY=SG.xxxxx  # SendGrid API密钥
-EMAIL_FROM=noreply@yourdomain.com
-EMAIL_FROM_NAME=浙财脉动
-
-# 基础URL
-WEB_URL=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://api-backend:8000
-```
-
-### 可选配置
-
-```env
-# Qwen模型选择（成本优化）
-QWEN_DAILY_MODEL=qwen-plus          # 晨报生成模型
-QWEN_FILTER_MODEL=qwen-flash        # 筛选模型
-QWEN_WEEKLY_MODEL=qwen-max-latest   # 周报生成模型
-
-# 晨报格式
-DAILY_REPORT_FORMAT=smart_brevity   # 或 voice（已废弃）
-
-# 采集配置
-POLL_INTERVAL=1800                  # 采集间隔（秒）
-MIN_ARTICLE_DATE=2025-12-15         # 最早采集日期
-
-# 通知（可选）
-DINGDING_WEBHOOK=https://...
-WECHAT_WEBHOOK=https://...
-FEISHU_WEBHOOK=https://...
-```
-
-完整配置示例请参考项目根目录的`env.example`文件。
+请参考项目根目录的`env.example`文件。
 
 ## 🛠️ 常用命令
 
@@ -413,134 +334,17 @@ docker-compose restart [service-name]
 
 # 停止所有服务
 docker-compose down
-
-# 完全清理（包括数据卷）
-docker-compose down -v
 ```
 
-### 数据库操作
+### 手动触发任务（调试用）
 
 ```bash
-# 初始化数据库
-docker-compose exec api-backend python scripts/init_db.py
-
-# 进入数据库
-docker-compose exec postgres-db psql -U zpulse -d zpulse
-
-# 导入公众号列表
-docker-compose exec api-backend python scripts/import_accounts.py data/official_accounts/example.csv
-
-# 创建管理员账号
-docker-compose exec api-backend python scripts/create_admin.py
-```
-
-### 调试和监控
-
-```bash
-# 查看API日志
-docker-compose logs -f api-backend
-
-# 查看采集Worker日志
-docker-compose logs -f ingestion-worker
-
-# 查看AI Worker日志
-docker-compose logs -f ai-worker
-
-# 查看前端日志
-docker-compose logs -f frontend-web
-
-# 检查服务健康状态
-curl http://localhost/api/health
-```
-
-### 手动触发任务
-
-```bash
-# 手动触发采集
+# 手动触发采集（通常不需要，系统会自动运行）
 docker-compose exec api-backend python -m app.workers.ingest
 
 # 手动生成晨报
 docker-compose exec api-backend python -c "from app.workers.ai_generate import AIWorker; AIWorker().generate_daily_report()"
-
-# 手动生成周报
-docker-compose exec api-backend python -c "from app.workers.ai_generate import AIWorker; AIWorker().generate_weekly_report()"
 ```
-
-## 📚 文档导航
-
-完整的文档请访问 [文档中心](docs/README.md)，包含：
-
-### 📖 使用指南
-
-- [管理后台使用指南](docs/guides/admin.md) - 管理后台功能详解
-- [晨报生成指南](docs/guides/daily-reports.md) - 晨报生成流程和配置
-- [采集状态检查指南](docs/guides/collection.md) - 如何检查和监控数据采集
-- [邮件服务配置指南](docs/guides/email-service.md) - 邮件服务配置和故障排除
-
-### 🚀 部署指南
-
-- [阿里云部署指南](docs/deployment/aliyun.md) - 在阿里云云主机上部署系统
-- [Docker安装指南](docs/deployment/docker-install.md) - 安装Docker和Docker Compose
-- [服务重启指南](docs/deployment/restart.md) - 如何重启和管理服务
-- [we-mp-rss集成指南](docs/deployment/werss-integration.md) - we-mp-rss服务集成说明
-
-### 🔧 故障排除
-
-- [故障排除索引](docs/troubleshooting/README.md) - 查找问题解决方案
-- [we-mp-rss故障排除](docs/troubleshooting/werss.md) - we-mp-rss相关问题
-- [UI样式问题排查](docs/troubleshooting/ui.md) - 前端样式和显示问题
-
-### 🏗️ 开发文档
-
-- [开发指南](docs/development.md) - 本地开发环境搭建
-- [架构对比](docs/architecture-comparison.md) - 集成we-mp-rss前后对比
-
-## 🎯 项目状态
-
-**当前版本**: V2.0.0  
-**项目状态**: 🟢 生产就绪  
-**完成度**: 100%
-
-### 已完成功能
-
-- ✅ 8服务Docker Compose架构
-- ✅ 微信公众号自动采集（we-mp-rss）
-- ✅ AI报告生成（晨报+周报）
-- ✅ Double Opt-In订阅系统
-- ✅ 现代化Web界面（Next.js）
-- ✅ 管理后台
-- ✅ 邮件推送系统
-- ✅ 完整文档体系
-
-### 后续计划
-
-- [ ] 文章全文搜索功能
-- [ ] 用户评论和互动
-- [ ] 多地区定制报告
-- [ ] 移动端应用
-- [ ] 数据可视化大屏
-- [ ] Webhook通知支持
-- [ ] 多租户支持
-
-## 🔒 安全特性
-
-- ✅ **密码学安全令牌**: 使用`secrets.token_urlsafe()`生成验证令牌
-- ✅ **Double Opt-In**: 标准化的邮件订阅流程
-- ✅ **SQL注入防护**: 使用ORM，参数化查询
-- ✅ **CORS配置**: 可配置的跨域策略
-- ✅ **密码加密**: bcrypt加密存储
-- ✅ **网络隔离**: Docker网络分离（proxy-net + internal-net）
-- ✅ **健康检查**: 所有关键服务都有健康检查机制
-- ✅ **环境变量**: 敏感信息通过环境变量管理
-
-## 📈 性能优化
-
-- ⚡ **Next.js ISR**: 首页加载时间 <100ms
-- ⚡ **Redis缓存**: API响应时间 <50ms
-- ⚡ **异步邮件**: 订阅响应时间 <1秒
-- ⚡ **批量处理**: Worker高效处理大量数据
-- ⚡ **连接池**: 数据库连接池优化
-- ⚡ **索引优化**: 关键查询字段建立索引
 
 ## 🤝 贡献指南
 
@@ -566,12 +370,9 @@ docker-compose exec api-backend python -c "from app.workers.ai_generate import A
 
 ## 📞 支持与反馈
 
-- 📧 **问题反馈**: [Gitee Issues](https://gitee.com/wang1st/z-pulse/issues)
+- 📧 **问题反馈**: [GitHub Issues](https://github.com/wang1st/z-pulse/issues)
 - 📖 **文档**: [文档中心](docs/README.md)
-- 💬 **讨论**: [Gitee Pull Requests](https://gitee.com/wang1st/z-pulse/pulls)
 
 ---
 
 **⭐ 如果这个项目对您有帮助，请给我们一个Star！**
-
-**🚀 立即开始**: 查看 [快速开始](#-快速开始) 或 [部署指南](docs/deployment/README.md)

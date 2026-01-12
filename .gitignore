@@ -93,3 +93,9 @@ out/
 dist/
 build/
 
+
+# USB 备份文件（大型二进制文件，不应提交）
+zpulse_usb_backup/
+zpulse_images*.tar.gz*
+zpulse_db.sql
+werss.db

@@ -95,5 +95,17 @@ module.exports = {
   plugins: [
     require('@tailwindcss/typography'),
   ],
+  typography: ({ theme }) => ({
+    xs: {
+      css: {
+        fontSize: '0.75rem',
+        lineHeight: '1.5',
+        p: {
+          marginTop: '0.5rem',
+          marginBottom: '0.5rem',
+        },
+      },
+    },
+  }),
 }
 

@@ -121,8 +121,10 @@ services:
       - PORT=8001
       - WEB_PORT=3000
       - ENABLE_WEB=True
-      - ENABLE_JOB=False
-      # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session 导致无法更新“今天文章”）
+      - ENABLE_JOB=True
+      # 启用内容采集（解决 csrf token 问题）
+      - GATHER_CONTENT=true
+      # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session 导致无法更新"今天文章"）
       - WERSS_AUTH_WEB=True
       # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在"获取二维码"
       # 固定到容器内的持久化目录（挂载在 /app/data），避免每次重建都重新下载
@@ -180,8 +182,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - RSS_BRIDGE_URL=http://rss-bridge:8001
-      # 改为“白天持续增量同步”，避免晚间集中抓取导致风控/超时
-      - POLL_INTERVAL=1800  # 30分钟：对齐到 :00 / :30 运行
+      # RSS采集间隔（秒）：3600=60分钟，1800=30分钟
+      - POLL_INTERVAL=${POLL_INTERVAL:-3600}
       # 错峰：避免与 weRSS / 其它任务在整点/半点同时争抢资源（:05 / :35）
       - INGEST_OFFSET_MINUTES=5
       # INGEST_RUN_AT 仅在 POLL_INTERVAL>=86400 的“每天一次模式”生效；保留无影响
@@ -240,9 +242,9 @@ services:
       - QWEN_FILTER_MODEL=${QWEN_FILTER_MODEL:-qwen-flash}
       - QWEN_WEEKLY_MODEL=${QWEN_WEEKLY_MODEL:-qwen-max-latest}
       # 日报生成与发送：平时增量采集，早上生成+推送
-      - DAILY_REPORT_TIME=09:45
-      - WEEKLY_REPORT_DAY=${WEEKLY_REPORT_DAY:-sunday}
-      - WEEKLY_REPORT_TIME=${WEEKLY_REPORT_TIME:-22:00}
+      - DAILY_REPORT_TIME=${DAILY_REPORT_TIME:-09:45}
+      - WEEKLY_REPORT_DAY=${WEEKLY_REPORT_DAY:-monday}
+      - WEEKLY_REPORT_TIME=${WEEKLY_REPORT_TIME:-10:00}
       # BERTopic模型缓存目录（持久化到volume，避免每次下载）
       - SENTENCE_TRANSFORMERS_HOME=/app/models_cache
       - HF_HOME=/app/models_cache
@@ -277,7 +279,7 @@ services:
     image: nginx:latest
     container_name: zpulse-proxy
     ports:
-      - "127.0.0.1:80:80"
+      - "127.0.0.1:8899:8899"
       - "127.0.0.1:443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro

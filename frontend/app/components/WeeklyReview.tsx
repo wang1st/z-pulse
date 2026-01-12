@@ -42,17 +42,17 @@ export function WeeklyReview(props: {
     <div className="mb-16">
       {/* Hero Section - same style as SmartBrevityDaily */}
       <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-slate-950 to-slate-950 text-white shadow-2xl mb-6">
-        <div className="relative p-7 md:p-10">
-          <div className="flex items-center justify-between max-w-6xl mx-auto">
-            <div>
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">浙财脉动</h1>
-              <p className="text-lg text-white/80">
+        <div className="relative p-5 md:p-10">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between max-w-6xl mx-auto gap-3 md:gap-4">
+            <div className="flex-1">
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight text-white mb-1.5 md:mb-4 leading-tight">浙财脉动</h1>
+              <p className="text-sm sm:text-base md:text-lg text-white/80 leading-snug">
                 大模型聚合的财政情报 · 每周一11点更新
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-sm md:text-base font-bold text-white mb-2">{formattedDate}</div>
-              <div className="text-xs md:text-sm font-semibold text-white/90">周报</div>
+            <div className="flex flex-row items-center justify-between md:flex-col md:items-end gap-2 md:gap-0 shrink-0">
+              <div className="text-xs sm:text-sm md:text-base font-bold text-white whitespace-nowrap">{formattedDate}</div>
+              <div className="text-xs md:text-sm font-semibold text-white/90 bg-white/10 px-2 py-0.5 rounded whitespace-nowrap">周报</div>
             </div>
           </div>
         </div>
@@ -126,8 +126,16 @@ export function WeeklyReview(props: {
                   </ReactMarkdown>
                 </div>
                 {disclaimer ? (
-                  <div className="prose prose-slate prose-sm max-w-none text-slate-500 mt-6">
-                    <ReactMarkdown>{disclaimer}</ReactMarkdown>
+                  <div className="prose prose-slate prose-xs max-w-none text-slate-500 mt-6">
+                    <ReactMarkdown
+                      components={{
+                        p: ({node, ...props}) => (
+                          <p className="text-xs sm:text-sm leading-relaxed" {...props} />
+                        ),
+                      }}
+                    >
+                      {disclaimer}
+                    </ReactMarkdown>
                   </div>
                 ) : null}
               </>

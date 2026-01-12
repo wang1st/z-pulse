@@ -220,7 +220,7 @@ export function ReportCalendar({ onDateClick, selectedDate }: ReportCalendarProp
                 key={dateStr}
                 onClick={handleClick}
                 className={`
-                  aspect-square border rounded-lg p-2 transition-all text-left
+                  aspect-square border rounded-lg p-1.5 sm:p-2 transition-all text-left
                   ${isToday ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}
                   ${!isCurrentMonthDate ? 'opacity-40' : ''}
                   ${dailyReport || weeklyReport ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}
@@ -231,36 +231,51 @@ export function ReportCalendar({ onDateClick, selectedDate }: ReportCalendarProp
               >
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-1 mb-1">
-                    <div className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
+                    <div className={`text-xs sm:text-sm font-medium ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
                       {date.getDate()}
                     </div>
                     {hasWeekly && (
                       <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title="有周报" />
                     )}
                   </div>
-                  {dailyReport && (
-                    <div className="flex-1 overflow-hidden">
-                      <div className="text-sm font-medium leading-tight line-clamp-2 text-slate-700">
-                        {getReportTitle(dailyReport)}
-                      </div>
-                      {weeklyReport && (
-                        <div className="mt-1">
-                          <div className="text-xs text-purple-600 font-medium">+ 周报</div>
-                          <div className="mt-0.5 text-xs sm:text-sm font-medium leading-tight text-purple-700 line-clamp-2">
-                            {getReportTitle(weeklyReport)}
-                          </div>
+                  <div className="flex-1 flex items-center justify-center">
+                    {dailyReport ? (
+                      <div className="w-full">
+                        <div className="hidden sm:block text-sm font-medium leading-tight line-clamp-2 text-slate-700">
+                          {getReportTitle(dailyReport)}
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {!dailyReport && weeklyReport && (
-                    <div className="flex-1 overflow-hidden">
-                      <div className="text-xs text-purple-600 font-medium">+ 周报</div>
-                      <div className="mt-0.5 text-xs sm:text-sm font-medium leading-tight text-purple-700 line-clamp-2">
-                        {getReportTitle(weeklyReport)}
+                        <div className="sm:hidden flex items-center justify-center" title="晨报">
+                          <Icon
+                            name={Icons.fileText}
+                            size={16}
+                            className="text-blue-600"
+                          />
+                        </div>
+                        {weeklyReport && (
+                          <div className="mt-1">
+                            <div className="hidden sm:block text-xs text-purple-600 font-medium">+ 周报</div>
+                            <div className="mt-0.5 hidden sm:block text-xs sm:text-sm font-medium leading-tight text-purple-700 line-clamp-2">
+                              {getReportTitle(weeklyReport)}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ) : weeklyReport ? (
+                      <div className="w-full">
+                        <div className="hidden sm:block text-xs text-purple-600 font-medium">+ 周报</div>
+                        <div className="hidden sm:block mt-0.5 text-xs sm:text-sm font-medium leading-tight text-purple-700 line-clamp-2">
+                          {getReportTitle(weeklyReport)}
+                        </div>
+                        <div className="sm:hidden flex items-center justify-center" title="周报">
+                          <Icon
+                            name={Icons.fileText}
+                            size={16}
+                            className="text-purple-600"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </button>
             )

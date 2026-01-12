@@ -99,3 +99,14 @@ zpulse_usb_backup/
 zpulse_images*.tar.gz*
 zpulse_db.sql
 werss.db
+zpulse_usb_backup_deploy.sh
+# 临时备份目录
+deploy_backup_*/
+deploy_export_*/
+
+# USB 备份文件（大型二进制文件，不应提交）
+zpulse_usb_backup/
+zpulse_images*.tar.gz*
+zpulse_db.sql
+werss.db
+zpulse_usb_backup_deploy.sh

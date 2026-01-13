@@ -9,9 +9,7 @@ COPY package.json package-lock.json* ./
 
 # 安装依赖
 RUN npm config set registry https://registry.npmmirror.com
-RUN npm ci
-# 显式安装 SWC 的 ARM64 GNU 二进制包，修复 M1/M2 mac 上 Docker 容器内运行的问题
-RUN npm install --no-save @next/swc-linux-arm64-gnu
+RUN npm install
 
 # 阶段2: 构建应用
 FROM node:20-slim AS builder

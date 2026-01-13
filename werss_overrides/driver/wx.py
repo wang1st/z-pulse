@@ -62,38 +62,14 @@ class Wx:
                 return token_match.group(1)
             
             # 尝试从localStorage获取
-            try:
-                evaluate_method = getattr(page, 'evaluate', None)
-                if evaluate_method is not None:
-                    try:
-                        token = evaluate_method("() => localStorage.getItem('token')")
-                        if token:
-                            return token
-                    except (TypeError, AttributeError) as e:
-                        if "'module' object is not callable" not in str(e) and "not callable" not in str(e):
-                            raise
-                        # evaluate 不可调用，继续尝试其他方法
-                else:
-                    token = None
-            except Exception as e:
-                token = None
+            token = page.evaluate("() => localStorage.getItem('token')")
+            if token:
+                return token
                 
             # 尝试从sessionStorage获取
-            try:
-                evaluate_method = getattr(page, 'evaluate', None)
-                if evaluate_method is not None:
-                    try:
-                        token = evaluate_method("() => sessionStorage.getItem('token')")
-                        if token:
-                            return token
-                    except (TypeError, AttributeError) as e:
-                        if "'module' object is not callable" not in str(e) and "not callable" not in str(e):
-                            raise
-                        # evaluate 不可调用，继续尝试其他方法
-                else:
-                    token = None
-            except Exception as e:
-                token = None
+            token = page.evaluate("() => sessionStorage.getItem('token')")
+            if token:
+                return token
                 
             # 尝试从cookie获取
             cookies = page.context.cookies()
@@ -391,7 +367,7 @@ class Wx:
                 if self.WX_HOME in current_url:
                     print(f"登录成功，正在获取cookie和token...")
             page.on('framenavigated', handle_frame_navigated)
-            page.wait_for_event("framenavigated", timeout=60 * 1000)
+            page.wait_for_event("framenavigated", timeout=60 * 1000)  # 60秒超时
            
             from .success import setStatus
             with self._login_lock:

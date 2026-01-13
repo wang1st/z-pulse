@@ -111,6 +111,9 @@ services:
       # 修复 RSS 采集卡死问题：添加超时保护和错误处理
       - ./werss_overrides/driver/playwright_driver.py:/app/driver/playwright_driver.py:ro
       - ./werss_overrides/driver/wxarticle.py:/app/driver/wxarticle.py:ro
+      # 修复登录锁释放问题和二维码生成时序：移除提前清理、增加超时、优化文件删除时机
+      - ./werss_overrides/driver/wx_api.py:/app/driver/wx_api.py:ro
+      - ./werss_overrides/driver/wx.py:/app/driver/wx.py:ro
       - ./werss_overrides/main.py:/app/main.py:ro
       # 修复分页问题：确保能爬取多页
       - ./werss_overrides/core/wx/model/web.py:/app/core/wx/model/web.py:ro
@@ -126,6 +129,11 @@ services:
       - GATHER_CONTENT=true
       # 允许通过 Web UI 进行二维码授权/刷新会话（修复 Invalid Session 导致无法更新"今天文章"）
       - WERSS_AUTH_WEB=True
+      # 管理员账号配置（用于Web登录）
+      - USERNAME=${WERSS_ADMIN_USERNAME:-admin}
+      - PASSWORD=${WERSS_ADMIN_PASSWORD:-admin@9988}
+      # 禁用自动初始化微信登录（改为手动触发）
+      - ARGS_INIT=False
       # we-mp-rss 使用 Playwright 登录微信，需要安装对应浏览器；否则会卡在"获取二维码"
       # 固定到容器内的持久化目录（挂载在 /app/data），避免每次重建都重新下载
       - PLAYWRIGHT_BROWSERS_PATH=/app/data/driver/_x86_64
@@ -279,8 +287,8 @@ services:
     image: nginx:latest
     container_name: zpulse-proxy
     ports:
-      - "127.0.0.1:8899:8899"
-      - "127.0.0.1:443:443"
+      - "8899:8899"
+      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro

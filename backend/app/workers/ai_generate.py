@@ -417,11 +417,18 @@ class AIWorker:
                     else:
                         report_json = {}
 
-                if report_json:
+                # 检查是否启用PDF附件（默认不启用，避免内存不足导致容器崩溃）
+                enable_pdf = settings.ENABLE_PDF_ATTACHMENT if hasattr(settings, 'ENABLE_PDF_ATTACHMENT') else False
+
+                if enable_pdf and report_json:
                     logger.info(f"Generating PDF for daily report: date={report_date}")
                     pdf_bytes = render_daily_report_pdf(report_json, report_date)
                     pdf_filename = f"z-pulse-daily-{report_date}.pdf"
                     logger.info(f"PDF generated successfully: size={len(pdf_bytes)} bytes")
+                elif not enable_pdf:
+                    logger.info(f"PDF attachment disabled, sending HTML-only email")
+                    pdf_bytes = None
+                    pdf_filename = None
                 else:
                     logger.warning("Report content_json is empty, skipping PDF generation")
             except Exception as e:

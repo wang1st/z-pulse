@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     EMAIL_FROM_NAME: str = Field(default="浙财脉动", env="EMAIL_FROM_NAME")
     
     # PDF附件配置
-    ENABLE_PDF_ATTACHMENT: bool = Field(default=True, env="ENABLE_PDF_ATTACHMENT")  # 是否在邮件中包含PDF附件
+    ENABLE_PDF_ATTACHMENT: bool = Field(default=False, env="ENABLE_PDF_ATTACHMENT")  # 是否在邮件中包含PDF附件（默认False，避免内存不足导致容器崩溃）
     
     # Worker配置
     POLL_INTERVAL: int = Field(default=1800, env="POLL_INTERVAL")  # 30分钟

@@ -48,9 +48,14 @@ def _linkify_inline_citations(escaped_text: str) -> str:
     )
 
 
-def render_daily_report_html(report_json: Dict[str, Any]) -> str:
+def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True) -> str:
     """
     Render report JSON to a compact, email-safe HTML string (inline styles).
+
+    Args:
+        report_json: The report data in JSON format
+        for_email: If True, returns HTML fragment (without <html>/<body> tags) for email template
+                   If False, returns complete HTML document
     """
     header = report_json.get("header") or {}
     title = _esc(header.get("title") or "财政日报")
@@ -97,29 +102,32 @@ def render_daily_report_html(report_json: Dict[str, Any]) -> str:
             pass
 
         html: List[str] = []
-        # Mobile-first responsive design
-        html.append('<!DOCTYPE html>')
-        html.append('<html>')
-        html.append('<head>')
-        html.append('<meta charset="UTF-8">')
-        html.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
-        html.append('<style>')
-        html.append('@media only screen and (min-width: 600px) {')
-        html.append('  .container { max-width: 800px !important; margin: 0 auto !important; }')
-        html.append('  .hero-padding { padding: 32px 48px !important; }')
-        html.append('  .hero-title { font-size: 56px !important; }')
-        html.append('  .hero-subtitle { font-size: 20px !important; }')
-        html.append('  .hero-date { font-size: 28px !important; }')
-        html.append('  .hero-label { font-size: 22px !important; }')
-        html.append('  .section-padding { padding: 32px 40px !important; }')
-        html.append('  .focus-headline { font-size: 28px !important; }')
-        html.append('  .focus-text { font-size: 16px !important; }')
-        html.append('  .hotspot-title { font-size: 22px !important; }')
-        html.append('  .hotspot-text { font-size: 15px !important; }')
-        html.append('}')
-        html.append('</style>')
-        html.append('</head>')
-        html.append('<body style="margin:0;padding:0;background-color:#f9fafb;">')
+
+        # Only add complete HTML structure if not for email
+        if not for_email:
+            html.append('<!DOCTYPE html>')
+            html.append('<html>')
+            html.append('<head>')
+            html.append('<meta charset="UTF-8">')
+            html.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
+            html.append('<style>')
+            html.append('@media only screen and (min-width: 600px) {')
+            html.append('  .container { max-width: 800px !important; margin: 0 auto !important; }')
+            html.append('  .hero-padding { padding: 32px 48px !important; }')
+            html.append('  .hero-title { font-size: 56px !important; }')
+            html.append('  .hero-subtitle { font-size: 20px !important; }')
+            html.append('  .hero-date { font-size: 28px !important; }')
+            html.append('  .hero-label { font-size: 22px !important; }')
+            html.append('  .section-padding { padding: 32px 40px !important; }')
+            html.append('  .focus-headline { font-size: 28px !important; }')
+            html.append('  .focus-text { font-size: 16px !important; }')
+            html.append('  .hotspot-title { font-size: 22px !important; }')
+            html.append('  .hotspot-text { font-size: 15px !important; }')
+            html.append('}')
+            html.append('</style>')
+            html.append('</head>')
+            html.append('<body style="margin:0;padding:0;background-color:#f9fafb;">')
+
         html.append('<div class="container" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;color:#111827;line-height:1.65;width:100%;max-width:100%;margin:0 auto;padding:0;">')
         
         # Hero Section - Mobile-first, dark gradient background matching frontend
@@ -318,8 +326,8 @@ def render_daily_report_html(report_json: Dict[str, Any]) -> str:
                     except Exception:
                         continue
                 
-                # Show first 2 sources (matching frontend)
-                default_sources = prioritized_sources[:2]
+                # Show first 3 sources (increased from 2 for better coverage)
+                default_sources = prioritized_sources[:3]
                 
                 html.append('<div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:linear-gradient(to bottom right, #f9fafb, #ffffff);">')
                 
@@ -331,7 +339,7 @@ def render_daily_report_html(report_json: Dict[str, Any]) -> str:
                 if why_hot:
                     html.append(f'<div class="hotspot-text" style="font-size:13px;color:#475569;line-height:1.6;margin-bottom:10px;font-weight:300;">{_esc(why_hot)}</div>')
                 
-                # Sources - Badge style (matching frontend, max 2 sources)
+                # Sources - Badge style (matching frontend, max 3 sources)
                 html.append('<div style="display:flex;flex-wrap:wrap;gap:8px;">')
                 for sid in default_sources:
                     src = sources_by_id.get(int(sid))
@@ -341,9 +349,9 @@ def render_daily_report_html(report_json: Dict[str, Any]) -> str:
                     stitle = _esc(str(src.get("title") or ""))
                     url = str(src.get("url") or "")
                     display_text = f"{account} · {stitle}" if account else stitle
-                if url:
+                    if url:
                         html.append(f'<a href="{_esc(url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;text-decoration:none;transition:background-color 0.2s;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{_esc(display_text)}</a>')
-                else:
+                    else:
                         html.append(f'<span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{_esc(display_text)}</span>')
                 html.append("</div>")
                 

@@ -261,15 +261,8 @@ async def send_daily_report(
             logger.error(f"Email not configured, skip sending daily report: {reason}")
             return False
 
-        # 渲染邮件模板
-        template = jinja_env.get_template('daily_report_email.html')
-        html_content = template.render(
-            report_content=report_html,
-            report_date=report_date,
-            report_type='daily',  # 标识为日报
-            web_url=settings.WEB_URL,
-            has_pdf_attachment=pdf_attachment is not None
-        )
+        # 直接使用report_html，不使用模板包装
+        html_content = report_html
 
         provider_client = _get_email_client()
         provider = provider_client[0]
@@ -286,27 +279,20 @@ async def send_daily_report(
         if provider == "sendgrid":
             from sendgrid.helpers.mail import Mail, Email, To, Content, Attachment, FileType, Disposition, ContentId
 
-            # Build email with plain text only (no HTML)
+            # Build email with HTML content
             message = Mail(
                 from_email=Email(settings.EMAIL_FROM, settings.EMAIL_FROM_NAME),
                 to_emails=To(email),
                 subject=f"财政晨报 - {report_date}",
-                plain_text_content=Content("text/plain", email_body_text),
+                html_content=Content("text/html", html_content),  # 使用模板渲染后的HTML（包含底部链接）
             )
 
-            # 添加PDF附件
-            if pdf_attachment and pdf_filename:
-                import base64
-                encoded_pdf = base64.b64encode(pdf_attachment).decode()
-                attachment = Attachment(
-                    file_content=FileContent(encoded_pdf),
-                    file_type=FileType("application/pdf"),
-                    file_name=Disposition(pdf_filename),
-                    disposition="attachment",
-                    content_id=None
-                )
-                message.add_attachment(attachment)
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 如果有纯文本内容，也添加
+            if report_text and not _is_blank(report_text):
+                message.add_content(Content("text/plain", str(report_text)))
+
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("PDF attachment disabled to prevent OOM errors")
 
             response = client.send(message)
             logger.info(f"Daily report sent via SendGrid to {email}, status: {response.status_code}")
@@ -314,7 +300,7 @@ async def send_daily_report(
 
         elif provider == "brevo_sdk":
             sdk = provider_client[2]
-            # Use plain text only (no HTML)
+            # Use HTML content
             kwargs = dict(
                 sender=sdk.SendSmtpEmailSender(
                     email=settings.EMAIL_FROM,
@@ -322,20 +308,15 @@ async def send_daily_report(
                 ),
                 to=[sdk.SendSmtpEmailTo(email=email)],
                 subject=f"财政晨报 - {report_date}",
-                text_content=email_body_text  # Plain text only
+                html_content=html_content  # 使用模板渲染后的HTML（包含底部链接）
             )
 
-            # 添加PDF附件
-            if pdf_attachment and pdf_filename:
-                import base64
-                encoded_pdf = base64.b64encode(pdf_attachment).decode()
-                attachment = sdk.SendSmtpEmailAttachment(
-                    name=pdf_filename,
-                    content=encoded_pdf,
-                    encoding="base64"
-                )
-                kwargs["attachment"] = [attachment]
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 如果有纯文本内容，也添加
+            if report_text and not _is_blank(report_text):
+                kwargs["text_content"] = str(report_text)
+
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("PDF attachment disabled to prevent OOM errors")
 
             send_smtp_email = sdk.SendSmtpEmail(**kwargs)
             response = client.send_transac_email(send_smtp_email)
@@ -344,35 +325,33 @@ async def send_daily_report(
             return True
 
         elif provider == "brevo_rest":
-            # Brevo REST API with plain text body only
+            # Brevo REST API with HTML body
             headers = {
                 "accept": "application/json",
                 "content-type": "application/json",
                 "api-key": str(settings.BREVO_API_KEY),
             }
 
-            payload = {
+            # 构建邮件内容，优先使用HTML，纯文本作为fallback
+            email_body = {
                 "sender": {"name": settings.EMAIL_FROM_NAME, "email": settings.EMAIL_FROM},
                 "to": [{"email": email}],
                 "subject": f"财政晨报 - {report_date}",
-                "textContent": email_body_text,  # Plain text only
+                "htmlContent": html_content,  # 使用模板渲染后的HTML（包含底部链接）
             }
 
-            # 添加PDF附件
-            if pdf_attachment and pdf_filename:
-                import base64
-                encoded_pdf = base64.b64encode(pdf_attachment).decode()
-                payload["attachment"] = [{
-                    "name": pdf_filename,
-                    "content": encoded_pdf
-                }]
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 如果有纯文本内容，也添加（作为fallback）
+            if report_text and not _is_blank(report_text):
+                email_body["textContent"] = str(report_text)
+
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("PDF attachment disabled to prevent OOM errors")
 
             async with httpx.AsyncClient() as http_client:
                 resp = await http_client.post(
                     f"{_brevo_base_url()}/smtp/email",
                     headers=headers,
-                    json=payload,
+                    json=email_body,
                     timeout=30.0
                 )
                 resp.raise_for_status()

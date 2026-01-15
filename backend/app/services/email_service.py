@@ -404,7 +404,7 @@ async def send_weekly_report(
     pdf_filename: Optional[str] = None,
 ) -> bool:
     """
-    发送周报（支持PDF附件）
+    发送周报（HTML格式，不含PDF附件）
     支持SendGrid、Brevo和Mailgun
 
     Args:
@@ -412,15 +412,18 @@ async def send_weekly_report(
         report_html: 报告内容（HTML，建议为后端渲染后的安全HTML）
         report_date: 报告日期
         date_range_str: 日期范围字符串（可选，用于标题）
-        report_text: 纯文本版本（可选）
-        pdf_attachment: PDF文件字节内容（可选）
-        pdf_filename: PDF文件名（可选）
+        report_text: 纯文本版本（可选，暂不使用）
+        pdf_attachment: PDF文件字节内容（可选，已禁用）
+        pdf_filename: PDF文件名（可选，已禁用）
     """
     try:
         ok, reason = email_config_status()
         if not ok:
             logger.error(f"Email not configured, skip sending weekly report: {reason}")
             return False
+
+        # 直接使用report_html，不使用模板包装（与晨报保持一致）
+        html_content = report_html
 
         provider_client = _get_email_client()
         provider = provider_client[0]
@@ -432,8 +435,7 @@ async def send_weekly_report(
         else:
             subject = f"财政周报 - {report_date}"
 
-        # Use plain text as email body (report_text includes web link)
-        # HTML content is not used for email body, only for PDF generation
+        # 不再使用纯文本，使用HTML格式
         if not report_text or _is_blank(report_text):
             logger.warning("Weekly report text is empty, using fallback")
             email_body_text = "（周报内容为空）"
@@ -441,29 +443,22 @@ async def send_weekly_report(
             email_body_text = str(report_text)
 
         if provider == "sendgrid":
-            from sendgrid.helpers.mail import Mail, Email, To, Content, Attachment, FileType, Disposition, FileContent
+            from sendgrid.helpers.mail import Mail, Email, To, Content
 
-            # Build email with plain text only (no HTML)
+            # Build email with HTML content
             message = Mail(
                 from_email=Email(settings.EMAIL_FROM, settings.EMAIL_FROM_NAME),
                 to_emails=To(email),
                 subject=subject,
-                plain_text_content=Content("text/plain", email_body_text),
+                html_content=Content("text/html", html_content),  # 使用HTML内容
             )
 
-            # 添加PDF附件
-            if pdf_attachment and pdf_filename:
-                import base64
-                encoded_pdf = base64.b64encode(pdf_attachment).decode()
-                attachment = Attachment(
-                    file_content=FileContent(encoded_pdf),
-                    file_type=FileType("application/pdf"),
-                    file_name=Disposition(pdf_filename),
-                    disposition="attachment",
-                    content_id=None
-                )
-                message.add_attachment(attachment)
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 如果有纯文本内容，也添加
+            if report_text and not _is_blank(report_text):
+                message.add_content(Content("text/plain", str(report_text)))
+
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("Weekly report PDF attachment disabled to prevent OOM errors")
 
             response = client.send(message)
             logger.info(f"Weekly report sent via SendGrid to {email}, status: {response.status_code}")
@@ -471,7 +466,7 @@ async def send_weekly_report(
 
         elif provider == "brevo_sdk":
             sdk = provider_client[2]
-            # Use plain text only (no HTML)
+            # Use HTML content
             kwargs = dict(
                 sender=sdk.SendSmtpEmailSender(
                     email=settings.EMAIL_FROM,
@@ -479,20 +474,15 @@ async def send_weekly_report(
                 ),
                 to=[sdk.SendSmtpEmailTo(email=email)],
                 subject=subject,
-                text_content=email_body_text  # Plain text only
+                html_content=html_content  # 使用HTML内容
             )
 
-            # 添加PDF附件
-            if pdf_attachment and pdf_filename:
-                import base64
-                encoded_pdf = base64.b64encode(pdf_attachment).decode()
-                attachment = sdk.SendSmtpEmailAttachment(
-                    name=pdf_filename,
-                    content=encoded_pdf,
-                    encoding="base64"
-                )
-                kwargs["attachment"] = [attachment]
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 如果有纯文本内容，也添加
+            if report_text and not _is_blank(report_text):
+                kwargs["text_content"] = str(report_text)
+
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("Weekly report PDF attachment disabled to prevent OOM errors")
 
             send_smtp_email = sdk.SendSmtpEmail(**kwargs)
             response = client.send_transac_email(send_smtp_email)
@@ -501,35 +491,33 @@ async def send_weekly_report(
             return True
 
         elif provider == "brevo_rest":
-            # Brevo REST API with plain text body only
+            # Brevo REST API with HTML body
             headers = {
                 "accept": "application/json",
                 "content-type": "application/json",
                 "api-key": str(settings.BREVO_API_KEY),
             }
 
-            payload = {
+            # 构建邮件内容，使用HTML
+            email_body = {
                 "sender": {"name": settings.EMAIL_FROM_NAME, "email": settings.EMAIL_FROM},
                 "to": [{"email": email}],
                 "subject": subject,
-                "textContent": email_body_text,  # Plain text only
+                "htmlContent": html_content,  # 使用HTML内容
             }
 
-            # 添加PDF附件
-            if pdf_attachment and pdf_filename:
-                import base64
-                encoded_pdf = base64.b64encode(pdf_attachment).decode()
-                payload["attachment"] = [{
-                    "name": pdf_filename,
-                    "content": encoded_pdf
-                }]
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 如果有纯文本内容，也添加（作为fallback）
+            if report_text and not _is_blank(report_text):
+                email_body["textContent"] = str(report_text)
+
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("Weekly report PDF attachment disabled to prevent OOM errors")
 
             async with httpx.AsyncClient() as http_client:
                 resp = await http_client.post(
                     f"{_brevo_base_url()}/smtp/email",
                     headers=headers,
-                    json=payload,
+                    json=email_body,
                     timeout=30.0
                 )
                 resp.raise_for_status()
@@ -540,24 +528,21 @@ async def send_weekly_report(
         elif provider == "mailgun":
             import requests
             client_dict = provider_client[1]
-            # Use plain text only (no HTML)
+            # Use HTML content
             data = {
                 "from": f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>",
                 "to": email,
                 "subject": subject,
-                "text": email_body_text,  # Plain text only
+                "html": html_content,  # 使用HTML内容
             }
 
-            files = {}
-            if pdf_attachment and pdf_filename:
-                files["attachment"] = (pdf_filename, pdf_attachment, "application/pdf")
-                logger.info(f"Attached PDF: {pdf_filename} ({len(pdf_attachment)} bytes)")
+            # 不再添加PDF附件 - 永久禁用以避免内存不足
+            logger.info("Weekly report PDF attachment disabled to prevent OOM errors")
 
             response = requests.post(
                 f"https://api.mailgun.net/v3/{client_dict['domain']}/messages",
                 auth=("api", client_dict["api_key"]),
                 data=data,
-                files=files if files else None
             )
             response.raise_for_status()
             logger.info(f"Weekly report sent via Mailgun to {email}, status: {response.status_code}")

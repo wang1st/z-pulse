@@ -55,8 +55,39 @@ class AIWorker:
     def __init__(self):
         """初始化"""
         # Ensure DB schema is up-to-date (creates new tables like article_one_liners)
+        # 添加超时控制，避免初始化时卡住
+        import signal
+        import functools
+
+        class TimeoutError(Exception):
+            pass
+
+        def timeout(seconds=10):
+            def decorator(func):
+                @functools.wraps(func)
+                def wrapper(*args, **kwargs):
+                    def _handle_timeout(signum, frame):
+                        raise TimeoutError(f"Function {func.__name__} timed out after {seconds} seconds")
+
+                    signal.signal(signal.SIGALRM, _handle_timeout)
+                    signal.alarm(seconds)
+                    try:
+                        result = func(*args, **kwargs)
+                    finally:
+                        signal.alarm(0)
+                    return result
+                return wrapper
+            return decorator
+
         try:
-            init_db()
+            # 给init_db设置10秒超时
+            @timeout(seconds=10)
+            def _init_db_with_timeout():
+                init_db()
+
+            _init_db_with_timeout()
+        except TimeoutError as e:
+            logger.warning(f"init_db timeout (non-fatal): {e}")
         except Exception as e:
             logger.warning(f"init_db failed in ai-worker init (non-fatal): {e}")
 
@@ -617,8 +648,9 @@ class AIWorker:
 
             logger.info(f"Generating weekly report from {len(daily_reports)} daily reports")
 
-            # 使用BERTopic提取主题
-            topics = self._extract_topics_with_bertopic(daily_reports)
+            # 跳过BERTopic（服务器无法访问HuggingFace，直接使用空主题列表）
+            topics = []
+            logger.info("Skipping BERTopic (disabled due to network restrictions)")
 
             # 准备每日摘要
             daily_summaries = {}
@@ -2070,7 +2102,8 @@ class AIWorker:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "请生成本周的财政周报深度洞察，字数严格控制在600字左右（绝对不能超过700字，目标550-650字）。要求：1. 跳出财政看财政，从宏观经济、社会趋势、政策周期、区域发展等更广阔视角分析；2. 不要逐一分析事件，要从全局视角识别本周最有价值的1个核心洞察；3. 只有真正发现深刻洞察时才写，不要勉强，洞察要有深度和说服力；4. 将财政动态与更宏观的背景联系起来，揭示跨领域的深层逻辑关系；5. 在分析过程中自然地融入2-3个关键事件或数据点作为支撑，不要单独列出\"关键证据\"部分，要将证据融入到正文分析中；6. 不要使用任何内联引用标注（如[1]、[2]等），保持文本流畅性和阅读连贯性；7. 不要使用任何二级标题（##），直接写核心洞察内容；8. 生成后请检查总字数，如果超过700字必须精简到600字左右；9. 每段控制在3-4句，不超过5句。"}
                 ],
-                temperature=0.7
+                temperature=0.7,
+                timeout=120  # 设置120秒超时，避免长时间等待
             )
             
             return completion.choices[0].message.content

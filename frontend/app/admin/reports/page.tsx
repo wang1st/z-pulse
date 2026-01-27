@@ -156,7 +156,7 @@ export default function ReportsPage() {
   const handleForceRegenerateByDate = async (dateStr: string) => {
     const ok = await confirm({
       title: '强制重新生成晨报',
-      description: `确定要强制重新生成 ${dateStr} 的晨报吗？（将创建新的后台任务，覆盖卡死/重复任务）`,
+      description: `确定要强制重新生成 ${dateStr} 的晨报吗？（将创建新的后台任务，覆盖卡死/重复任务。生成时间约3-5分钟）`,
       confirmText: '强制生成',
       cancelText: '取消',
       variant: 'destructive',
@@ -164,7 +164,17 @@ export default function ReportsPage() {
     if (!ok) return
     try {
       const res = await api.post(`/admin/reports/daily/${dateStr}/regenerate`, null, { params: { force: true } })
-      toast({ title: '已提交后台任务', description: res.data?.message || '已强制入队', variant: 'success' })
+
+      const jobId = res.data?.job_id
+      const message = res.data?.message || '已强制入队'
+
+      toast({
+        title: '强制任务已提交',
+        description: jobId ? `${message}（任务ID: ${jobId}）` : message,
+        variant: 'success',
+      })
+
+      // 立即刷新任务列表和报告列表
       fetchJobs()
       fetchReports()
     } catch (error: any) {
@@ -217,7 +227,7 @@ export default function ReportsPage() {
   const handleRegenerate = async (reportDate: string, title: string) => {
     const ok = await confirm({
       title: '重新生成报告',
-      description: `确定要重新生成“${title}”吗？将基于相同日期文章重新生成。`,
+      description: `确定要重新生成"${title}"吗？将基于相同日期文章重新生成。（生成时间约3-5分钟，可在任务管理查看进度）`,
       confirmText: '开始生成',
       cancelText: '取消',
     })
@@ -229,11 +239,17 @@ export default function ReportsPage() {
       // 按日期重新生成：避免 report_id 变化导致的 404
       const dateStr = reportDate.slice(0, 10)
       const response = await api.post(`/admin/reports/daily/${dateStr}/regenerate`)
+
+      const jobId = response.data?.job_id
+      const message = response.data?.message || '正在后台生成，稍后刷新列表或查看报告详情'
+
       toast({
-        title: '已提交后台任务',
-        description: response.data.message || '正在后台生成，稍后刷新列表或查看报告详情',
+        title: '任务已提交',
+        description: jobId ? `${message}（任务ID: ${jobId}）` : message,
         variant: 'success',
       })
+
+      // 立即刷新任务列表和报告列表
       fetchJobs()
       fetchReports()
     } catch (error: any) {
@@ -255,8 +271,8 @@ export default function ReportsPage() {
     const ok = await confirm({
       title: isWeekly ? '生成指定日期周报' : '生成指定日期晨报',
       description: isWeekly
-        ? `确定要生成 ${targetDate} 所在周的周报吗？（周报的日期为该周一）`
-        : `确定要生成 ${targetDate} 的晨报吗？`,
+        ? `确定要生成 ${targetDate} 所在周的周报吗？（周报的日期为该周一，生成时间约3-5分钟，可在任务管理查看进度）`
+        : `确定要生成 ${targetDate} 的晨报吗？（生成时间约3-5分钟，可在任务管理查看进度）`,
       confirmText: '开始生成',
       cancelText: '取消',
     })
@@ -266,13 +282,17 @@ export default function ReportsPage() {
       const res = isWeekly
         ? await api.post('/admin/reports/generate/weekly')
         : await api.post(`/admin/reports/daily/${targetDate}/regenerate`)
+
+      const jobId = res.data?.job_id
+      const message = res.data?.message || (isWeekly ? '已提交本周周报生成任务' : `已提交 ${targetDate} 晨报生成任务`)
+
       toast({
-        title: '已提交后台任务',
-        description:
-          res.data?.message ||
-          (isWeekly ? '已提交本周周报生成任务' : `已提交 ${targetDate} 晨报生成任务`),
+        title: '任务已提交',
+        description: jobId ? `${message}（任务ID: ${jobId}）` : message,
         variant: 'success',
       })
+
+      // 立即刷新任务列表和报告列表
       fetchJobs()
       fetchReports()
     } catch (error: any) {

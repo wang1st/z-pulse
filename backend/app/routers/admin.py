@@ -1493,3 +1493,56 @@ async def trigger_weekly_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"触发周报生成失败: {str(e)}"
         )
+
+
+# 手动发送晨报API
+@router.post("/api/admin/reports/{report_id}/send")
+async def manual_send_report(
+    report_id: int,
+    skip_pdf: bool = True,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    手动发送指定报告的邮件
+    
+    用于重新发送已生成但未发送的报告
+    """
+    from app.workers.ai_generate import AIWorker
+    import asyncio
+    
+    # 获取报告
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="报告不存在")
+    
+    # 记录日志
+    logger.info(f"手动发送报告: ID={report_id}, skip_pdf={skip_pdf}")
+    
+    # 创建worker并发送
+    worker = AIWorker()
+    
+    try:
+        # 如果跳过PDF，临时修改settings
+        original_setting = settings.ENABLE_PDF_ATTACHMENT
+        if skip_pdf:
+            settings.ENABLE_PDF_ATTACHMENT = False
+        
+        # 发送邮件
+        result = await worker._distribute_daily_report(db, report)
+        
+        # 恢复设置
+        if skip_pdf:
+            settings.ENABLE_PDF_ATTACHMENT = original_setting
+        
+        # 返回结果
+        return {
+            "success": True,
+            "report_id": report_id,
+            "sent_count": result,
+            "message": f"成功发送{result}封邮件"
+        }
+    except Exception as e:
+        logger.error(f"手动发送失败: {e}")
+        raise HTTPException(status_code=500, detail=f"发送失败: {str(e)}")
+

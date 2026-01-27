@@ -25,7 +25,8 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from openai import OpenAI
-from bertopic import BERTopic
+# BERTopic导入非常耗时，改为延迟导入（lazy import）
+# from bertopic import BERTopic
 from sqlalchemy.orm import Session
 
 from shared.config import settings
@@ -1800,13 +1801,16 @@ class AIWorker:
     def _extract_topics_with_bertopic(self, daily_reports) -> list:
         """
         使用BERTopic提取核心主题
-        
+
         Args:
             daily_reports: 日报列表
-        
+
         Returns:
             主题列表
         """
+        # 延迟导入BERTopic，避免模块加载时的长时间等待
+        from bertopic import BERTopic
+
         try:
             # 准备文档
             documents = [report.summary_markdown for report in daily_reports if report.summary_markdown]

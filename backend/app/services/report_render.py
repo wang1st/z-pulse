@@ -17,6 +17,59 @@ def _esc(s: Any) -> str:
     return escape("" if s is None else str(s), quote=True)
 
 
+def _start_flexless_div(style: str = "") -> str:
+    """开始一个邮件安全的div（不使用flexbox）"""
+    return f'<div style="{style}">'
+
+
+def _start_table_row(gap: int = 8) -> str:
+    """开始一个table行来模拟flex布局"""
+    return f'<table cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-bottom:{gap}px">'
+
+
+def _end_table_row() -> str:
+    """结束table行"""
+    return '</td></tr></table>'
+
+
+def _render_inline_flex(items: List[str], gap: int = 8, align: str = "center") -> str:
+    """
+    使用table渲染水平排列的元素（邮件客户端兼容）
+
+    Args:
+        items: HTML元素列表
+        gap: 间距(px)
+        align: 对齐方式 (center/middle/top)
+    """
+    if not items:
+        return ""
+
+    html = ['<table cellpadding="0" cellspacing="0" border="0"><tr>']
+    for i, item in enumerate(items):
+        if i > 0:
+            html.append(f'<td width="{gap}"></td>')  # 间距
+        html.append(f'<td valign="{align}">{item}</td>')
+    html.append('</tr></table>')
+    return ''.join(html)
+
+
+def _render_vertical_stack(items: List[str], gap: int = 12) -> str:
+    """
+    使用table渲染垂直堆叠的元素（邮件客户端兼容）
+
+    Args:
+        items: HTML元素列表
+        gap: 间距(px)
+    """
+    if not items:
+        return ""
+
+    html = []
+    for i, item in enumerate(items):
+        html.append(f'<div style="margin-bottom:{gap if i < len(items) - 1 else 0}px;">{item}</div>')
+    return ''.join(html)
+
+
 def _render_citations(citations: Optional[List[int]]) -> str:
     if not citations:
         return ""
@@ -211,11 +264,11 @@ def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True
                     html.append(f'<span style="margin-left:4px;">{_esc(rest_text)}</span>')
                 html.append("</div>")
             
-            # Citation sources - Badge style
+            # Citation sources - Badge style (邮件客户端兼容布局)
             if focus_citations:
                 html.append('<div style="margin-top:24px;">')
-                html.append('<div style="display:flex;flex-wrap:wrap;gap:8px;">')
-                # Show all sources in email (no "more" button)
+                # 使用table替代flexbox，每行最多3个徽章
+                badges = []
                 for cid in focus_citations:
                     try:
                         sid = int(cid)
@@ -226,12 +279,14 @@ def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True
                             url = str(src.get("url") or "")
                             display_text = f"{account} · {stitle}" if account else stitle
                             if url:
-                                html.append(f'<a href="{_esc(url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;text-decoration:none;transition:background-color 0.2s;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{_esc(display_text)}</a>')
+                                badges.append(f'<a href="{_esc(url)}" target="_blank" rel="noreferrer" style="display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;text-decoration:none;line-height:1;white-space:nowrap;margin-right:8px;margin-bottom:8px;">{_esc(display_text)}</a>')
                             else:
-                                html.append(f'<span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{_esc(display_text)}</span>')
+                                badges.append(f'<span style="display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;line-height:1;white-space:nowrap;margin-right:8px;margin-bottom:8px;">{_esc(display_text)}</span>')
                     except Exception:
                         continue
-                html.append("</div>")
+                if badges:
+                    html.append(''.join(badges))
+                html.append('<div style="clear:both;"></div>')
                 html.append("</div>")
             
             html.append("</div>")
@@ -272,36 +327,37 @@ def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True
             
             html.append('<div style="background-color:#ffffff;border-radius:16px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);overflow:hidden;margin-bottom:16px;">')
             
-            # Title bar with gradient - Mobile-first (low saturation)
+            # Title bar with gradient - Mobile-first (low saturation) 邮件兼容
             html.append('<div style="background:linear-gradient(to right, #f8fafc 0%, rgba(209, 250, 229, 0.3) 100%);padding:16px 16px 12px 16px;">')
-            html.append('<div style="display:flex;align-items:center;gap:10px;">')
-            html.append('<div style="width:32px;height:32px;border-radius:50%;background-color:#059669;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);flex-shrink:0;">')
+            html.append('<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>')
+            html.append('<td width="42" valign="top">')
+            html.append('<div style="width:32px;height:32px;border-radius:50%;background-color:#059669;text-align:center;line-height:32px;box-shadow:0 2px 4px rgba(0,0,0,0.1);">')
             html.append('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>')
             html.append("</div>")
-            html.append('<div style="min-width:0;flex:1;">')
+            html.append("</td>")
+            html.append('<td valign="top" style="padding-left:10px;">')
             html.append('<div style="font-size:18px;font-weight:700;color:#111827;">近日热点</div>')
             html.append('<div style="font-size:12px;color:#6b7280;margin-top:2px;">近3天覆盖3个不同公众号的话题</div>')
-            html.append("</div>")
-            html.append("</div>")
+            html.append("</td>")
+            html.append("</tr></table>")
             html.append("</div>")
             
-            # Content area - Single column cards - Mobile-first
+            # Content area - Single column cards - Mobile-first 邮件兼容
             html.append('<div class="section-padding" style="padding:20px 16px;">')
-            html.append('<div style="display:flex;flex-direction:column;gap:12px;">')
-            
+
             for hotspot in display_hotspots:
                 event = str(hotspot.get("event") or "").strip()
                 why_hot = str(hotspot.get("why_hot") or "").strip()
                 source_ids = hotspot.get("source_ids") or []
                 if not isinstance(source_ids, list):
                     source_ids = []
-                
+
                 # Sort sources: prioritize different accounts, then by date descending
                 sorted_source_ids = sorted(source_ids, key=lambda sid: (
                     sources_by_id.get(int(sid), {}).get("account", ""),
                     -int(sources_by_id.get(int(sid), {}).get("date", "0").replace("-", "").replace(":", "").replace(" ", "")) if sources_by_id.get(int(sid), {}).get("date") else 0
                 ))
-                
+
                 # Get one latest source per account
                 account_map: Dict[str, int] = {}
                 prioritized_sources = []
@@ -316,7 +372,7 @@ def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True
                                 prioritized_sources.append(sid_int)
                     except Exception:
                         continue
-                
+
                 # Add remaining sources
                 for sid in sorted_source_ids:
                     try:
@@ -325,22 +381,21 @@ def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True
                             prioritized_sources.append(sid_int)
                     except Exception:
                         continue
-                
+
                 # Show first 3 sources (increased from 2 for better coverage)
                 default_sources = prioritized_sources[:3]
-                
-                html.append('<div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:linear-gradient(to bottom right, #f9fafb, #ffffff);">')
-                
+
+                html.append('<div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:linear-gradient(to bottom right, #f9fafb, #ffffff);margin-bottom:12px;">')
+
                 # Event name - Mobile-first
                 if event:
                     html.append(f'<div class="hotspot-title" style="font-size:18px;font-weight:500;color:#111827;margin-bottom:6px;">{_esc(event)}</div>')
-                
+
                 # Why hot explanation - Mobile-first
                 if why_hot:
                     html.append(f'<div class="hotspot-text" style="font-size:13px;color:#475569;line-height:1.6;margin-bottom:10px;font-weight:300;">{_esc(why_hot)}</div>')
-                
-                # Sources - Badge style (matching frontend, max 3 sources)
-                html.append('<div style="display:flex;flex-wrap:wrap;gap:8px;">')
+
+                # Sources - Badge style (邮件兼容，使用inline-block)
                 for sid in default_sources:
                     src = sources_by_id.get(int(sid))
                     if not src:
@@ -350,14 +405,12 @@ def render_daily_report_html(report_json: Dict[str, Any], for_email: bool = True
                     url = str(src.get("url") or "")
                     display_text = f"{account} · {stitle}" if account else stitle
                     if url:
-                        html.append(f'<a href="{_esc(url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;text-decoration:none;transition:background-color 0.2s;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{_esc(display_text)}</a>')
+                        html.append(f'<a href="{_esc(url)}" target="_blank" rel="noreferrer" style="display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;text-decoration:none;line-height:1;white-space:nowrap;margin-right:8px;margin-bottom:8px;">{_esc(display_text)}</a>')
                     else:
-                        html.append(f'<span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{_esc(display_text)}</span>')
+                        html.append(f'<span style="display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px;background-color:#f1f5f9;color:#374151;line-height:1;white-space:nowrap;margin-right:8px;margin-bottom:8px;">{_esc(display_text)}</span>')
+
                 html.append("</div>")
-                
-                html.append("</div>")
-            
-            html.append("</div>")
+
             html.append("</div>")
             html.append("</div>")
 

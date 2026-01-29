@@ -28,16 +28,20 @@ WERSS_SECRET = settings.WERSS_SECRET_KEY
 
 def get_werss_token_status(account_id: str) -> Optional[dict]:
     """
-    查询WeRSS中公众号的token状态
+    查询WeRSS全局token状态
+
+    WeRSS使用全局token，不是每个公众号单独的token
+    Token信息存储在 /app/data/wx.lic 文件中
 
     Args:
-        account_id: weRSS feed_id
+        account_id: weRSS feed_id (未使用，保留用于兼容性)
 
     Returns:
-        Token状态信息，包含expiry_date等
+        Token状态信息，包含expiry_time等
     """
     try:
-        url = f"{WERSS_BASE_URL}/api/feeds/{account_id}"
+        # 调用WeRSS系统信息API获取全局token状态
+        url = f"{WERSS_BASE_URL}/sys/info"
         headers = {
             "X-Secret": WERSS_SECRET
         }
@@ -47,73 +51,118 @@ def get_werss_token_status(account_id: str) -> Optional[dict]:
 
         data = response.json()
 
-        # 从feed信息中提取token过期时间
-        # WeRSS通常在feed对象中包含updated_at或类似字段
-        return {
-            "account_id": account_id,
-            "last_update": data.get("updated_at"),
-            "title": data.get("title", ""),
-            "status": data.get("status", "unknown")
-        }
+        # WeRSS API返回格式: {"code": 200, "data": {...}}
+        if data.get("code") == 200 and "data" in data:
+            wx_info = data["data"].get("wx", {})
+            expiry_time_str = wx_info.get("expiry_time", "")
+            is_login = wx_info.get("login", False)
+
+            return {
+                "account_id": account_id,
+                "expiry_time": expiry_time_str,
+                "is_login": is_login,
+                "token": wx_info.get("token", "")
+            }
+        else:
+            logger.warning(f"WeRSS API returned unexpected response: {data}")
+            return None
 
     except Exception as e:
-        logger.error(f"Failed to get token status for {account_id}: {e}")
+        logger.error(f"Failed to get token status: {e}")
         return None
 
 
 def check_all_tokens() -> list[dict]:
     """
-    检查所有公众号的token状态
+    检查WeRSS全局token状态
+
+    WeRSS使用全局token，所有公众号共用同一个token
+    只需要检查一次全局token状态即可
 
     Returns:
-        即将过期的token列表
+        即将过期的token列表（实际上只有一个全局token）
     """
     db = SessionLocal()
     expiring_soon = []
 
     try:
-        # 查询所有启用的公众号
-        accounts = db.query(OfficialAccount).filter(
-            OfficialAccount.is_active == True,
-            OfficialAccount.werss_feed_id.isnot(None)
-        ).all()
+        # WeRSS使用全局token，只需要检查一次
+        logger.info("Checking WeRSS global token status")
 
-        logger.info(f"Checking {len(accounts)} WeRSS accounts for token expiry")
+        # 获取全局token状态（account_id参数不重要）
+        status = get_werss_token_status("global")
 
-        # 假设token有效期为4天（96小时）
-        # 实际应该从WeRSS API获取，这里做估算
-        TOKEN_VALIDITY_HOURS = 96
+        if not status:
+            # 无法获取状态，可能token已失效
+            logger.warning("Could not get WeRSS token status, token may be expired")
 
-        for account in accounts:
-            status = get_werss_token_status(account.werss_feed_id)
+            # 获取第一个启用的公众号用于提醒
+            account = db.query(OfficialAccount).filter(
+                OfficialAccount.is_active == True,
+                OfficialAccount.werss_feed_id.isnot(None)
+            ).first()
 
-            if not status:
-                continue
+            if account:
+                expiring_soon.append({
+                    "account": account,
+                    "expiry_time": datetime.now(),
+                    "remaining_hours": 0,
+                    "status": {"error": "无法获取token状态"}
+                })
+            return expiring_soon
 
-            # 如果没有更新时间，跳过
-            if not status.get("last_update"):
-                continue
+        # 检查是否已登录
+        if not status.get("is_login"):
+            logger.warning("WeRSS token is not logged in")
 
-            # 计算token剩余时间
-            try:
-                last_update = datetime.fromisoformat(
-                    status["last_update"].replace('Z', '+00:00')
-                )
-                expiry_time = last_update + timedelta(hours=TOKEN_VALIDITY_HOURS)
-                remaining = expiry_time - datetime.now()
+            account = db.query(OfficialAccount).filter(
+                OfficialAccount.is_active == True,
+                OfficialAccount.werss_feed_id.isnot(None)
+            ).first()
 
-                # 如果剩余时间小于24小时，加入提醒列表
-                if remaining.total_seconds() < 24 * 3600:
+            if account:
+                expiring_soon.append({
+                    "account": account,
+                    "expiry_time": datetime.now(),
+                    "remaining_hours": 0,
+                    "status": status
+                })
+            return expiring_soon
+
+        # 解析过期时间
+        expiry_time_str = status.get("expiry_time", "")
+        if not expiry_time_str:
+            logger.warning("No expiry time in WeRSS token status")
+            return expiring_soon
+
+        try:
+            # 解析过期时间 (格式: "2026-01-17 16:40:16")
+            expiry_time = datetime.strptime(expiry_time_str, "%Y-%m-%d %H:%M:%S")
+            remaining = expiry_time - datetime.now()
+            remaining_hours = remaining.total_seconds() / 3600
+
+            logger.info(f"Token expiry time: {expiry_time_str}, remaining: {remaining_hours:.1f} hours")
+
+            # 如果剩余时间小于24小时，加入提醒列表
+            if remaining_hours < 24:
+                logger.warning(f"Token expiring soon: {remaining_hours:.1f} hours remaining")
+
+                # 获取一个公众号账号用于提醒
+                account = db.query(OfficialAccount).filter(
+                    OfficialAccount.is_active == True,
+                    OfficialAccount.werss_feed_id.isnot(None)
+                ).first()
+
+                if account:
                     expiring_soon.append({
                         "account": account,
                         "expiry_time": expiry_time,
-                        "remaining_hours": remaining.total_seconds() / 3600,
+                        "remaining_hours": remaining_hours,
                         "status": status
                     })
 
-            except Exception as e:
-                logger.warning(f"Failed to calculate expiry for {account.name}: {e}")
-                continue
+        except ValueError as e:
+            logger.error(f"Failed to parse expiry time '{expiry_time_str}': {e}")
 
         return expiring_soon
 

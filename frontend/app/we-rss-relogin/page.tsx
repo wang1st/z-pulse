@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+
+export const dynamic = 'force-dynamic'
 
 interface TokenVerifyResponse {
   valid: boolean
@@ -11,7 +13,7 @@ interface TokenVerifyResponse {
   message: string
 }
 
-export default function WeRSSReloginPage() {
+function WeRSSReloginContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
 
@@ -30,9 +32,11 @@ export default function WeRSSReloginPage() {
     }
 
     verifyToken()
-  }, [token])
+  }, [token ?? ''])
 
   const verifyToken = async () => {
+    if (!token) return
+
     try {
       const response = await fetch(
         `/api/werss-relogin/verify?token=${encodeURIComponent(token)}`
@@ -56,6 +60,11 @@ export default function WeRSSReloginPage() {
   }
 
   const handleConfirm = async () => {
+    if (!token) {
+      alert('令牌无效')
+      return
+    }
+
     try {
       await fetch(
         `/api/werss-relogin/confirm?token=${encodeURIComponent(token)}`,
@@ -273,4 +282,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#007bff',
     textDecoration: 'none',
   },
+}
+
+export default function WeRSSReloginPage() {
+  return (
+    <Suspense fallback={
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={styles.spinner}></div>
+          <p style={styles.loadingText}>加载中...</p>
+        </div>
+      </div>
+    }>
+      <WeRSSReloginContent />
+    </Suspense>
+  )
 }

@@ -21,7 +21,8 @@ logger = get_logger("werss_monitor")
 
 
 # WeRSS API配置
-WERSS_BASE_URL = settings.RSS_BASE_URL  # http://localhost:8080
+# 在Docker环境中使用容器名，本地开发使用localhost
+WERSS_BASE_URL = os.getenv("WERSS_BASE_URL", settings.RSS_BASE_URL)
 WERSS_SECRET = settings.WERSS_SECRET_KEY
 
 
@@ -242,16 +243,22 @@ def send_token_expiry_alert(expiring_accounts: list[dict]):
             # 发送邮件给所有管理员
             subject = f"⚠️ 【重要】微信Token即将过期 - {account.name}"
 
-            for admin_email in settings.ADMIN_EMAILS:
-                try:
-                    send_email_raw(
-                        to_email=admin_email,
-                        subject=subject,
-                        html_content=html_content
-                    )
-                    logger.info(f"Sent token expiry alert to {admin_email} for {account.name}")
-                except Exception as e:
-                    logger.error(f"Failed to send email to {admin_email}: {e}")
+            import asyncio
+
+            async def send_alerts():
+                for admin_email in settings.ADMIN_EMAILS:
+                    try:
+                        await send_email_raw(
+                            to_email=admin_email,
+                            subject=subject,
+                            html_content=html_content
+                        )
+                        logger.info(f"Sent token expiry alert to {admin_email} for {account.name}")
+                    except Exception as e:
+                        logger.error(f"Failed to send email to {admin_email}: {e}")
+
+            # 运行异步发送
+            asyncio.run(send_alerts())
 
     finally:
         db.close()

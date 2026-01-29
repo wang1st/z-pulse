@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     MAILGUN_DOMAIN: Optional[str] = Field(default=None, env="MAILGUN_DOMAIN")
     EMAIL_FROM: str = Field(default="noreply@zpulse.com", env="EMAIL_FROM")
     EMAIL_FROM_NAME: str = Field(default="浙财脉动", env="EMAIL_FROM_NAME")
+
+    # 管理员配置
+    ADMIN_EMAILS: List[str] = Field(
+        default=["paprio@qq.com"],
+        env="ADMIN_EMAILS"
+    )  # 管理员邮箱列表，用于接收系统通知（如token过期提醒）
     
     # PDF附件配置
     ENABLE_PDF_ATTACHMENT: bool = Field(default=False, env="ENABLE_PDF_ATTACHMENT")  # 是否在邮件中包含PDF附件（默认False，避免内存不足导致容器崩溃）

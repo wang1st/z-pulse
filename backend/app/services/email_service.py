@@ -555,3 +555,69 @@ async def send_weekly_report(
     # Should not reach here, but keep safe
     return False
 
+
+
+async def send_email_raw(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None
+) -> bool:
+    """
+    发送原始HTML邮件（用于系统通知等）
+
+    Args:
+        to_email: 收件人邮箱
+        subject: 邮件主题
+        html_content: HTML内容
+        text_content: 纯文本内容（可选）
+
+    Returns:
+        是否发送成功
+    """
+    try:
+        ok, reason = email_config_status()
+        if not ok:
+            logger.error(f"Email not configured, skip sending: {reason}")
+            return False
+
+        provider_client = _get_email_client()
+        provider = provider_client[0]
+        client = provider_client[1]
+
+        if provider == "brevo_rest":
+            headers = {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "api-key": str(settings.BREVO_API_KEY),
+            }
+
+            email_body = {
+                "sender": {"name": settings.EMAIL_FROM_NAME, "email": settings.EMAIL_FROM},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html_content,
+            }
+
+            if text_content and not _is_blank(text_content):
+                email_body["textContent"] = str(text_content)
+
+            async with httpx.AsyncClient() as http_client:
+                resp = await http_client.post(
+                    f"{_brevo_base_url()}/smtp/email",
+                    headers=headers,
+                    json=email_body,
+                    timeout=30.0
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                logger.info(f"Raw email sent via Brevo(REST) to {to_email}, resp: {data}")
+            return True
+
+        else:
+            logger.warning(f"Email provider {provider} not implemented for send_email_raw yet")
+            return False
+
+    except Exception as e:
+        logger.exception(f"Failed to send raw email to {to_email}: {str(e)}")
+        return False

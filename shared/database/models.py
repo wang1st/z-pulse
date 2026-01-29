@@ -318,17 +318,48 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    
+
     # 基本信息
     username = Column(String(100), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(200))
-    
+
     # 权限
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    
+
     # 时间戳
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login_at = Column(DateTime)
+
+
+class OneTimeToken(Base):
+    """
+    一次性访问令牌表
+    用于微信token过期提醒等场景，提供无需登录的直接访问
+    """
+    __tablename__ = "one_time_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Token信息
+    token = Column(String(128), unique=True, nullable=False, index=True, comment="令牌字符串")
+    purpose = Column(String(50), nullable=False, comment="用途: werss_relogin等")
+
+    # 过期和使用状态
+    expiry = Column(DateTime, nullable=False, comment="过期时间")
+    used_at = Column(DateTime, comment="使用时间")
+    is_used = Column(Boolean, default=False, nullable=False, comment="是否已使用")
+
+    # 关联数据（JSON格式，存储用途相关的上下文信息）
+    context = Column(JSON, nullable=True, comment="上下文信息（如公众号ID等）")
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index('idx_one_time_tokens_token', 'token'),
+        Index('idx_one_time_tokens_purpose', 'purpose'),
+        Index('idx_one_time_tokens_expiry', 'expiry'),
+    )

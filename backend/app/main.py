@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from shared.config import settings
 from shared.database import init_db
 from shared.utils import get_logger
-from .routers import reports, subscriptions, health, auth, admin
+from .routers import reports, subscriptions, health, auth, admin, werss
 
 logger = get_logger("api-backend")
 
@@ -43,6 +43,7 @@ app.include_router(reports.router, prefix="/api/reports", tags=["报告"])
 app.include_router(subscriptions.router, prefix="/api/subscribe", tags=["订阅"])
 app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])
+app.include_router(werss.router, tags=["WeRSS"])
 
 
 @app.on_event("startup")

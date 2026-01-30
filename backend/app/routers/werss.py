@@ -6,14 +6,22 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import or_
+import requests
+import os
 
 from shared.database.database import SessionLocal
 from shared.database.models import OneTimeToken, OfficialAccount
 from shared.utils import get_logger
+from shared.config import settings
 
 logger = get_logger("werss-api")
 
 router = APIRouter()
+
+# WeRSS API配置
+# 在Docker环境中使用容器名，本地开发使用localhost
+WERSS_BASE_URL = os.getenv("WERSS_BASE_URL", "http://zpulse-rss:8001")
+WERSS_SECRET = settings.WERSS_SECRET_KEY
 
 
 class TokenVerifyResponse(BaseModel):
@@ -121,6 +129,117 @@ def confirm_relogin(token: str = Query(..., description="一次性登录令牌")
 
     finally:
         db.close()
+
+
+@router.get("/api/werss/qrcode")
+def get_werss_qrcode():
+    """
+    获取WeRSS登录二维码
+
+    先登录获取JWT token，然后用token调用二维码API
+    """
+    try:
+        # 步骤1：登录获取JWT token（使用form-data格式）
+        login_url = f"{WERSS_BASE_URL}/api/v1/wx/auth/token"
+        login_data = {
+            "username": "admin",
+            "password": "admin@9988"
+        }
+
+        login_response = requests.post(login_url, data=login_data, timeout=10)
+        login_response.raise_for_status()
+        login_result = login_response.json()
+
+        if "access_token" not in login_result:
+            logger.error(f"Login failed: {login_result}")
+            raise HTTPException(status_code=500, detail="WeRSS登录失败")
+
+        jwt_token = login_result["access_token"]
+        logger.info(f"Successfully obtained JWT token from WeRSS")
+
+        # 步骤2：使用JWT token获取二维码
+        qr_url = f"{WERSS_BASE_URL}/api/v1/wx/auth/qr/code"
+        headers = {
+            "Authorization": f"Bearer {jwt_token}"
+        }
+
+        qr_response = requests.get(qr_url, headers=headers, timeout=10)
+        qr_response.raise_for_status()
+
+        qr_data = qr_response.json()
+
+        # WeRSS API返回格式: {"code": 0, "message": "success", "data": {...}}
+        if qr_data.get("code") == 0 and "data" in qr_data:
+            logger.info(f"Successfully obtained QR code from WeRSS")
+            return {
+                "success": True,
+                "qr_url": qr_data["data"].get("code", ""),  # WeRSS返回的是code字段，不是qr_url
+                "msg": qr_data["data"].get("msg", "")
+            }
+        else:
+            logger.warning(f"WeRSS API returned unexpected response: {qr_data}")
+            raise HTTPException(status_code=500, detail="获取二维码失败")
+
+    except Exception as e:
+        logger.exception(f"Error getting QR code: {e}")
+        raise HTTPException(status_code=500, detail=f"获取二维码失败: {str(e)}")
+
+
+@router.get("/api/werss/qrcode/status")
+def get_qrcode_status():
+    """
+    获取二维码扫描状态
+
+    先登录获取JWT token，然后检查扫码状态
+    """
+    try:
+        # 步骤1：登录获取JWT token
+        login_url = f"{WERSS_BASE_URL}/api/v1/wx/auth/token"
+        login_data = {
+            "username": "admin",
+            "password": "admin@9988"
+        }
+
+        login_response = requests.post(login_url, data=login_data, timeout=10)
+        login_response.raise_for_status()
+        login_result = login_response.json()
+
+        if "access_token" not in login_result:
+            return {
+                "success": False,
+                "login_status": False
+            }
+
+        jwt_token = login_result["access_token"]
+
+        # 步骤2：使用JWT token检查状态
+        status_url = f"{WERSS_BASE_URL}/api/v1/wx/auth/qr/status"
+        headers = {
+            "Authorization": f"Bearer {jwt_token}"
+        }
+
+        response = requests.get(status_url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        if data.get("code") == 0 and "data" in data:
+            return {
+                "success": True,
+                "login_status": data["data"].get("login_status", False)
+            }
+        else:
+            return {
+                "success": False,
+                "login_status": False
+            }
+
+    except Exception as e:
+        logger.exception(f"Error getting QR status: {e}")
+        return {
+            "success": False,
+            "login_status": False
+        }
 
 
 @router.get("/api/werss/accounts")

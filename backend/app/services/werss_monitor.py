@@ -225,7 +225,9 @@ def send_token_expiry_alert(expiring_accounts: list[dict]):
             relogin_token = generate_relogin_token(account_id=account.werss_feed_id)
 
             # 构建重新登录URL
-            relogin_url = f"{settings.WEB_URL}/we-rss-relogin?token={relogin_token}"
+            # 使用环境变量WEB_URL来构建完整URL
+            base_url = settings.WEB_URL if hasattr(settings, 'WEB_URL') else "http://localhost:8899"
+            relogin_url = f"{base_url}/we-rss-qrcode-direct"
 
             # 邮件模板
             html_template = """
@@ -262,17 +264,17 @@ def send_token_expiry_alert(expiring_accounts: list[dict]):
                     <div class="info">
                         <h3>✅ 解决方法（仅需30秒）：</h3>
                         <ol>
-                            <li>点击下方按钮直接跳转到扫码页面</li>
+                            <li>点击下方按钮直接打开二维码页面</li>
                             <li>使用微信扫描二维码</li>
-                            <li>确认登录</li>
-                            <li>完成！无需其他操作</li>
+                            <li>在手机上确认登录</li>
+                            <li>完成！页面会自动显示"登录成功"</li>
                         </ol>
                     </div>
 
-                    <p><a href="{{relogin_url}}" class="btn">📱 点击此处直接扫码重新登录</a></p>
+                    <p><a href="{{relogin_url}}" class="btn" target="_blank">📱 打开二维码扫码页面</a></p>
 
                     <p style="color: #666; font-size: 12px;">
-                        此链接24小时内有效，点击后可直接进入扫码页面，<strong>无需登录后台</strong>。<br>
+                        <strong>直接访问：</strong> <a href="{{relogin_url}}">{{relogin_url}}</a><br>
                         如果链接失效，请联系管理员重新生成。
                     </p>
                 </div>
